@@ -11,6 +11,7 @@ from homeassistant.components.utility_meter.const import (
     DATA_UTILITY,
 )
 from homeassistant.config_entries import SOURCE_IMPORT, ConfigEntry
+from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.const import (
     ATTR_ENTITY_PICTURE,
     ATTR_ICON,
@@ -324,6 +325,10 @@ async def _plant_add_to_device_registry(
     # device_id when adding the entities.
     erreg = er.async_get(hass)
     for entity in plant_entities:
+        if entity.registry_entry is None:
+            raise ConfigEntryNotReady(
+                f"Entity {entity.entity_id} not yet registered, retrying setup"
+            )
         erreg.async_update_entity(entity.registry_entry.entity_id, device_id=device_id)
 
 

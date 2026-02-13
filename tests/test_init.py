@@ -118,6 +118,34 @@ class TestIntegrationSetup:
         )
         assert device_after is None
 
+    async def test_setup_entry_retries_when_registry_not_ready(
+        self,
+        hass: HomeAssistant,
+        mock_external_sensors: None,
+    ) -> None:
+        """Test setup raises ConfigEntryNotReady when entity registry_entry is None."""
+        from tests.conftest import create_plant_config_data
+
+        config_data = create_plant_config_data()
+        entry = MockConfigEntry(
+            domain=DOMAIN,
+            data=config_data,
+            entry_id="test_registry_not_ready",
+        )
+        entry.add_to_hass(hass)
+
+        with patch(
+            "custom_components.plant._plant_add_to_device_registry",
+            side_effect=__import__(
+                "homeassistant.exceptions", fromlist=["ConfigEntryNotReady"]
+            ).ConfigEntryNotReady("Entity not yet registered"),
+        ):
+            await hass.config_entries.async_setup(entry.entry_id)
+            await hass.async_block_till_done()
+
+        # Entry should be in SETUP_RETRY state
+        assert entry.state.name == "SETUP_RETRY"
+
     async def test_setup_entry_no_plant_info(
         self,
         hass: HomeAssistant,
