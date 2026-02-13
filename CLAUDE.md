@@ -32,6 +32,20 @@ This integration is part of a plant monitoring ecosystem:
 .venv/bin/pytest tests/ --cov=custom_components/plant --cov-report=term-missing
 ```
 
+## IMPORTANT: Before Committing Code
+
+**ALWAYS run these commands after making code changes:**
+
+```bash
+# Format all code
+.venv/bin/black .
+
+# Run all tests
+.venv/bin/pytest tests/ -v
+```
+
+The CI pipeline will fail if code is not properly formatted or if tests fail. Always verify both before committing.
+
 See DEVELOPMENT.md for full setup instructions.
 
 ## Architecture
