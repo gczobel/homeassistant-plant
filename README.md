@@ -180,6 +180,21 @@ Configure via **Settings** → **Devices & Services** → **Plant Monitor** → 
 
 ![Problem trigger options](https://user-images.githubusercontent.com/203184/184301674-0461813a-a665-4e93-b5a8-7c9575fe4782.png)
 
+### Hysteresis
+
+All threshold checks include a **hysteresis band** equal to 5% of the min–max range. This prevents rapid flapping between OK and PROBLEM when a sensor value hovers near a threshold.
+
+A plant enters PROBLEM when a value crosses its threshold, but does not return to OK until the value clears the threshold by the band amount. For example, with moisture min=20 and max=60 (range 40, band 2.0):
+
+- Moisture drops below 20% — enters PROBLEM
+- Moisture rises to 21% — **stays in PROBLEM** (below min + band = 22%)
+- Moisture rises to 23% — clears to OK
+
+The band scales proportionally with your configured thresholds. No configuration is needed — hysteresis is always active.
+
+> [!NOTE]
+> When a sensor becomes unavailable, the hysteresis state resets. The next valid reading is evaluated fresh against the thresholds.
+
 ---
 
 ## 🔄 Replacing Sensors
