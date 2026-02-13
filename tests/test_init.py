@@ -21,7 +21,6 @@ from custom_components.plant.const import (
     ATTR_PLANT,
     DOMAIN,
     FLOW_PLANT_INFO,
-    HYSTERESIS_FRACTION,
     STATE_HIGH,
     STATE_LOW,
 )
