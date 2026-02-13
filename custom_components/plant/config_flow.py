@@ -719,7 +719,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
             return await self.async_step_replace_sensor()
 
         self.plant = self.hass.data[DOMAIN][self.config_entry.entry_id]["plant"]
-        
+
         # Build list of current sensors with their friendly names
         sensor_options = []
         for sensor in self.plant.meter_entities:
@@ -729,7 +729,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 friendly_name = entity_entry.name or sensor.entity_id
             else:
                 friendly_name = sensor.entity_id
-            
+
             sensor_options.append(
                 {
                     "label": friendly_name,
@@ -768,25 +768,24 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         """Show entity selector for new sensor, filtered by device_class."""
         if user_input is not None:
             new_sensor = user_input.get("new_sensor") or None
-            
+
             # Update the sensor entity directly if it exists (this also updates config entry)
             updated = False
             for sensor in self.plant.meter_entities:
-                if (
-                    sensor.entity_id == self.selected_sensor_entity_id
-                    and hasattr(sensor, "replace_external_sensor")
+                if sensor.entity_id == self.selected_sensor_entity_id and hasattr(
+                    sensor, "replace_external_sensor"
                 ):
                     sensor.replace_external_sensor(new_sensor)
                     updated = True
                     break
-            
+
             # Fallback: update config entry directly if sensor entity not found
             if not updated and self.selected_sensor_config_key:
                 new_data = dict(self.config_entry.data)
                 new_plant_info = dict(new_data.get(FLOW_PLANT_INFO, {}))
                 new_plant_info[self.selected_sensor_config_key] = new_sensor
                 new_data[FLOW_PLANT_INFO] = new_plant_info
-                
+
                 self.hass.config_entries.async_update_entry(
                     self.config_entry, data=new_data
                 )
@@ -816,7 +815,7 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 ATTR_DOMAIN: DOMAIN_SENSOR,
             }
         }
-        
+
         # Add device_class filter if available and it's a standard SensorDeviceClass
         if device_class and device_class in (
             SensorDeviceClass.TEMPERATURE,
