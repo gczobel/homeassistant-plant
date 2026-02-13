@@ -1332,8 +1332,12 @@ class TestHysteresis:
 
         # Step 1: Drop below min → PROBLEM
         await set_external_sensor_states(
-            hass, temperature=25.0, moisture=15.0, conductivity=1000.0,
-            illuminance=5000.0, humidity=40.0,
+            hass,
+            temperature=25.0,
+            moisture=15.0,
+            conductivity=1000.0,
+            illuminance=5000.0,
+            humidity=40.0,
         )
         await update_plant_sensors(hass, init_integration.entry_id)
         assert plant.moisture_status == STATE_LOW
@@ -1341,8 +1345,12 @@ class TestHysteresis:
 
         # Step 2: Rise to just above min but within band (20.5 < 20 + 2 = 22)
         await set_external_sensor_states(
-            hass, temperature=25.0, moisture=20.5, conductivity=1000.0,
-            illuminance=5000.0, humidity=40.0,
+            hass,
+            temperature=25.0,
+            moisture=20.5,
+            conductivity=1000.0,
+            illuminance=5000.0,
+            humidity=40.0,
         )
         await update_plant_sensors(hass, init_integration.entry_id)
         assert plant.moisture_status == STATE_LOW  # Still held
@@ -1350,8 +1358,12 @@ class TestHysteresis:
 
         # Step 3: Rise above band (23 > 22) → clears to OK
         await set_external_sensor_states(
-            hass, temperature=25.0, moisture=23.0, conductivity=1000.0,
-            illuminance=5000.0, humidity=40.0,
+            hass,
+            temperature=25.0,
+            moisture=23.0,
+            conductivity=1000.0,
+            illuminance=5000.0,
+            humidity=40.0,
         )
         await update_plant_sensors(hass, init_integration.entry_id)
         assert plant.moisture_status == STATE_OK
@@ -1371,8 +1383,12 @@ class TestHysteresis:
 
         # Step 1: Rise above max → PROBLEM
         await set_external_sensor_states(
-            hass, temperature=25.0, moisture=65.0, conductivity=1000.0,
-            illuminance=5000.0, humidity=40.0,
+            hass,
+            temperature=25.0,
+            moisture=65.0,
+            conductivity=1000.0,
+            illuminance=5000.0,
+            humidity=40.0,
         )
         await update_plant_sensors(hass, init_integration.entry_id)
         assert plant.moisture_status == STATE_HIGH
@@ -1380,8 +1396,12 @@ class TestHysteresis:
 
         # Step 2: Drop to just below max but within band (59.0 >= 60 - 2 = 58)
         await set_external_sensor_states(
-            hass, temperature=25.0, moisture=59.0, conductivity=1000.0,
-            illuminance=5000.0, humidity=40.0,
+            hass,
+            temperature=25.0,
+            moisture=59.0,
+            conductivity=1000.0,
+            illuminance=5000.0,
+            humidity=40.0,
         )
         await update_plant_sensors(hass, init_integration.entry_id)
         assert plant.moisture_status == STATE_HIGH  # Still held
@@ -1389,8 +1409,12 @@ class TestHysteresis:
 
         # Step 3: Drop below band (57.0 < 58) → clears to OK
         await set_external_sensor_states(
-            hass, temperature=25.0, moisture=57.0, conductivity=1000.0,
-            illuminance=5000.0, humidity=40.0,
+            hass,
+            temperature=25.0,
+            moisture=57.0,
+            conductivity=1000.0,
+            illuminance=5000.0,
+            humidity=40.0,
         )
         await update_plant_sensors(hass, init_integration.entry_id)
         assert plant.moisture_status == STATE_OK
@@ -1410,24 +1434,36 @@ class TestHysteresis:
 
         # Drop below min
         await set_external_sensor_states(
-            hass, temperature=8.0, moisture=40.0, conductivity=1000.0,
-            illuminance=5000.0, humidity=40.0,
+            hass,
+            temperature=8.0,
+            moisture=40.0,
+            conductivity=1000.0,
+            illuminance=5000.0,
+            humidity=40.0,
         )
         await update_plant_sensors(hass, init_integration.entry_id)
         assert plant.temperature_status == STATE_LOW
 
         # Rise within band (11.0 <= 10 + 1.5 = 11.5)
         await set_external_sensor_states(
-            hass, temperature=11.0, moisture=40.0, conductivity=1000.0,
-            illuminance=5000.0, humidity=40.0,
+            hass,
+            temperature=11.0,
+            moisture=40.0,
+            conductivity=1000.0,
+            illuminance=5000.0,
+            humidity=40.0,
         )
         await update_plant_sensors(hass, init_integration.entry_id)
         assert plant.temperature_status == STATE_LOW  # held
 
         # Rise above band (12.0 > 11.5)
         await set_external_sensor_states(
-            hass, temperature=12.0, moisture=40.0, conductivity=1000.0,
-            illuminance=5000.0, humidity=40.0,
+            hass,
+            temperature=12.0,
+            moisture=40.0,
+            conductivity=1000.0,
+            illuminance=5000.0,
+            humidity=40.0,
         )
         await update_plant_sensors(hass, init_integration.entry_id)
         assert plant.temperature_status == STATE_OK
@@ -1449,8 +1485,12 @@ class TestHysteresis:
 
         # Set moisture within hysteresis band (21 is > min=20 but < min+band=22)
         await set_external_sensor_states(
-            hass, temperature=25.0, moisture=21.0, conductivity=1000.0,
-            illuminance=5000.0, humidity=40.0,
+            hass,
+            temperature=25.0,
+            moisture=21.0,
+            conductivity=1000.0,
+            illuminance=5000.0,
+            humidity=40.0,
         )
         await update_plant_sensors(hass, init_integration.entry_id)
 
@@ -1471,8 +1511,12 @@ class TestHysteresis:
 
         # Enter PROBLEM
         await set_external_sensor_states(
-            hass, temperature=25.0, moisture=15.0, conductivity=1000.0,
-            illuminance=5000.0, humidity=40.0,
+            hass,
+            temperature=25.0,
+            moisture=15.0,
+            conductivity=1000.0,
+            illuminance=5000.0,
+            humidity=40.0,
         )
         await update_plant_sensors(hass, init_integration.entry_id)
         assert plant.moisture_status == STATE_LOW
@@ -1485,8 +1529,12 @@ class TestHysteresis:
 
         # Value returns within hysteresis band → should be OK (no held state)
         await set_external_sensor_states(
-            hass, temperature=25.0, moisture=21.0, conductivity=1000.0,
-            illuminance=5000.0, humidity=40.0,
+            hass,
+            temperature=25.0,
+            moisture=21.0,
+            conductivity=1000.0,
+            illuminance=5000.0,
+            humidity=40.0,
         )
         await update_plant_sensors(hass, init_integration.entry_id)
         assert plant.moisture_status == STATE_OK
@@ -1505,8 +1553,12 @@ class TestHysteresis:
 
         # Rise above max
         await set_external_sensor_states(
-            hass, temperature=25.0, moisture=40.0, conductivity=1000.0,
-            illuminance=110000.0, humidity=40.0,
+            hass,
+            temperature=25.0,
+            moisture=40.0,
+            conductivity=1000.0,
+            illuminance=110000.0,
+            humidity=40.0,
         )
         await update_plant_sensors(hass, init_integration.entry_id)
         assert plant.illuminance_status == STATE_HIGH
@@ -1514,8 +1566,12 @@ class TestHysteresis:
 
         # Drop within band (96000 >= 100000 - 5000 = 95000)
         await set_external_sensor_states(
-            hass, temperature=25.0, moisture=40.0, conductivity=1000.0,
-            illuminance=96000.0, humidity=40.0,
+            hass,
+            temperature=25.0,
+            moisture=40.0,
+            conductivity=1000.0,
+            illuminance=96000.0,
+            humidity=40.0,
         )
         await update_plant_sensors(hass, init_integration.entry_id)
         assert plant.illuminance_status == STATE_HIGH  # held
@@ -1523,8 +1579,12 @@ class TestHysteresis:
 
         # Drop below band (94000 < 95000)
         await set_external_sensor_states(
-            hass, temperature=25.0, moisture=40.0, conductivity=1000.0,
-            illuminance=94000.0, humidity=40.0,
+            hass,
+            temperature=25.0,
+            moisture=40.0,
+            conductivity=1000.0,
+            illuminance=94000.0,
+            humidity=40.0,
         )
         await update_plant_sensors(hass, init_integration.entry_id)
         assert plant.illuminance_status == STATE_OK
@@ -1546,8 +1606,12 @@ class TestHysteresis:
 
         # Set normal sensor values first
         await set_external_sensor_states(
-            hass, temperature=25.0, moisture=40.0, conductivity=1000.0,
-            illuminance=5000.0, humidity=40.0,
+            hass,
+            temperature=25.0,
+            moisture=40.0,
+            conductivity=1000.0,
+            illuminance=5000.0,
+            humidity=40.0,
         )
         await update_plant_sensors(hass, init_integration.entry_id)
 
@@ -1555,12 +1619,24 @@ class TestHysteresis:
             """Context manager to mock DLI sensor with given last_period."""
             mock_attrs = {"last_period": last_period}
             return (
-                patch.object(type(plant.dli), "extra_state_attributes",
-                             new_callable=PropertyMock, return_value=mock_attrs),
-                patch.object(type(plant.dli), "native_value",
-                             new_callable=PropertyMock, return_value=last_period),
-                patch.object(type(plant.dli), "state",
-                             new_callable=PropertyMock, return_value=str(last_period)),
+                patch.object(
+                    type(plant.dli),
+                    "extra_state_attributes",
+                    new_callable=PropertyMock,
+                    return_value=mock_attrs,
+                ),
+                patch.object(
+                    type(plant.dli),
+                    "native_value",
+                    new_callable=PropertyMock,
+                    return_value=last_period,
+                ),
+                patch.object(
+                    type(plant.dli),
+                    "state",
+                    new_callable=PropertyMock,
+                    return_value=str(last_period),
+                ),
             )
 
         # Step 1: Drop below min (1.0 < 2)
@@ -1598,24 +1674,36 @@ class TestHysteresis:
 
         # Drop below min
         await set_external_sensor_states(
-            hass, temperature=25.0, moisture=40.0, conductivity=400.0,
-            illuminance=5000.0, humidity=40.0,
+            hass,
+            temperature=25.0,
+            moisture=40.0,
+            conductivity=400.0,
+            illuminance=5000.0,
+            humidity=40.0,
         )
         await update_plant_sensors(hass, init_integration.entry_id)
         assert plant.conductivity_status == STATE_LOW
 
         # Rise within band (600 <= 500 + 125 = 625)
         await set_external_sensor_states(
-            hass, temperature=25.0, moisture=40.0, conductivity=600.0,
-            illuminance=5000.0, humidity=40.0,
+            hass,
+            temperature=25.0,
+            moisture=40.0,
+            conductivity=600.0,
+            illuminance=5000.0,
+            humidity=40.0,
         )
         await update_plant_sensors(hass, init_integration.entry_id)
         assert plant.conductivity_status == STATE_LOW  # held
 
         # Rise above band (650 > 625)
         await set_external_sensor_states(
-            hass, temperature=25.0, moisture=40.0, conductivity=650.0,
-            illuminance=5000.0, humidity=40.0,
+            hass,
+            temperature=25.0,
+            moisture=40.0,
+            conductivity=650.0,
+            illuminance=5000.0,
+            humidity=40.0,
         )
         await update_plant_sensors(hass, init_integration.entry_id)
         assert plant.conductivity_status == STATE_OK

@@ -968,9 +968,15 @@ class PlantDevice(Entity):
             ):
                 known_state = True
                 self.moisture_status = self._check_threshold(
-                    float(moisture), self.min_moisture, self.max_moisture, self.moisture_status
+                    float(moisture),
+                    self.min_moisture,
+                    self.max_moisture,
+                    self.moisture_status,
                 )
-                if self.moisture_status in (STATE_LOW, STATE_HIGH) and self.moisture_trigger:
+                if (
+                    self.moisture_status in (STATE_LOW, STATE_HIGH)
+                    and self.moisture_trigger
+                ):
                     new_state = STATE_PROBLEM
             else:
                 # Reset status when sensor is unavailable
@@ -990,9 +996,15 @@ class PlantDevice(Entity):
             ):
                 known_state = True
                 self.conductivity_status = self._check_threshold(
-                    float(conductivity), self.min_conductivity, self.max_conductivity, self.conductivity_status
+                    float(conductivity),
+                    self.min_conductivity,
+                    self.max_conductivity,
+                    self.conductivity_status,
                 )
-                if self.conductivity_status in (STATE_LOW, STATE_HIGH) and self.conductivity_trigger:
+                if (
+                    self.conductivity_status in (STATE_LOW, STATE_HIGH)
+                    and self.conductivity_trigger
+                ):
                     new_state = STATE_PROBLEM
             else:
                 # Reset status when sensor is unavailable
@@ -1012,9 +1024,15 @@ class PlantDevice(Entity):
             ):
                 known_state = True
                 self.temperature_status = self._check_threshold(
-                    float(temperature), self.min_temperature, self.max_temperature, self.temperature_status
+                    float(temperature),
+                    self.min_temperature,
+                    self.max_temperature,
+                    self.temperature_status,
                 )
-                if self.temperature_status in (STATE_LOW, STATE_HIGH) and self.temperature_trigger:
+                if (
+                    self.temperature_status in (STATE_LOW, STATE_HIGH)
+                    and self.temperature_trigger
+                ):
                     new_state = STATE_PROBLEM
             else:
                 # Reset status when sensor is unavailable
@@ -1034,9 +1052,15 @@ class PlantDevice(Entity):
             ):
                 known_state = True
                 self.humidity_status = self._check_threshold(
-                    float(humidity), self.min_humidity, self.max_humidity, self.humidity_status
+                    float(humidity),
+                    self.min_humidity,
+                    self.max_humidity,
+                    self.humidity_status,
                 )
-                if self.humidity_status in (STATE_LOW, STATE_HIGH) and self.humidity_trigger:
+                if (
+                    self.humidity_status in (STATE_LOW, STATE_HIGH)
+                    and self.humidity_trigger
+                ):
                     new_state = STATE_PROBLEM
             else:
                 # Reset status when sensor is unavailable
@@ -1076,9 +1100,15 @@ class PlantDevice(Entity):
             ):
                 known_state = True
                 self.soil_temperature_status = self._check_threshold(
-                    float(soil_temp), self.min_soil_temperature, self.max_soil_temperature, self.soil_temperature_status
+                    float(soil_temp),
+                    self.min_soil_temperature,
+                    self.max_soil_temperature,
+                    self.soil_temperature_status,
                 )
-                if self.soil_temperature_status in (STATE_LOW, STATE_HIGH) and self.soil_temperature_trigger:
+                if (
+                    self.soil_temperature_status in (STATE_LOW, STATE_HIGH)
+                    and self.soil_temperature_trigger
+                ):
                     new_state = STATE_PROBLEM
             else:
                 # Reset status when sensor is unavailable
@@ -1109,9 +1139,15 @@ class PlantDevice(Entity):
                 ):
                     known_state = True
                     self.illuminance_status = self._check_threshold(
-                        float(illuminance), self.min_illuminance, self.max_illuminance, self.illuminance_status
+                        float(illuminance),
+                        self.min_illuminance,
+                        self.max_illuminance,
+                        self.illuminance_status,
                     )
-                    if self.illuminance_status == STATE_HIGH and self.illuminance_trigger:
+                    if (
+                        self.illuminance_status == STATE_HIGH
+                        and self.illuminance_trigger
+                    ):
                         new_state = STATE_PROBLEM
                 else:
                     # Reset status when sensor is unavailable
