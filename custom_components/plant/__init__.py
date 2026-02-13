@@ -23,6 +23,7 @@ from homeassistant.const import (
     Platform,
 )
 from homeassistant.core import HomeAssistant, ServiceCall, callback
+from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
@@ -324,6 +325,10 @@ async def _plant_add_to_device_registry(
     # device_id when adding the entities.
     erreg = er.async_get(hass)
     for entity in plant_entities:
+        if entity.registry_entry is None:
+            raise ConfigEntryNotReady(
+                f"Entity {entity.entity_id} not yet registered, retrying setup"
+            )
         erreg.async_update_entity(entity.registry_entry.entity_id, device_id=device_id)
 
 
