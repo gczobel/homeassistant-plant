@@ -248,3 +248,7 @@ CONF_PLANTBOOK_MAPPING = {
     CONF_MIN_MMOL: "min_light_mmol",
     CONF_MAX_MMOL: "max_light_mmol",
 }
+
+# Options flow actions
+ACTION_REPLACE_SENSOR = "replace_sensor"
+ACTION_EDIT_PLANT = "edit_plant"

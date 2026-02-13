@@ -19,10 +19,13 @@ from homeassistant.const import (
 )
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.network import NoURLAvailableError, get_url
 from homeassistant.helpers.selector import selector
 
 from .const import (
+    ACTION_EDIT_PLANT,
+    ACTION_REPLACE_SENSOR,
     ATTR_ENTITY,
     ATTR_LIMITS,
     ATTR_OPTIONS,
@@ -569,11 +572,50 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
     def __init__(self) -> None:
         """Initialize options flow."""
         self.plant = None
+        self.selected_sensor_entity_id: str | None = None
+        self.selected_sensor_config_key: str | None = None
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Manage the options."""
+        """Manage the options - show choice between edit plant and replace sensor."""
+        if user_input is not None:
+            action = user_input.get("action")
+            if action == ACTION_EDIT_PLANT:
+                return await self.async_step_plant_properties()
+            elif action == ACTION_REPLACE_SENSOR:
+                return await self.async_step_replace_sensor()
+
+        self.plant = self.hass.data[DOMAIN][self.config_entry.entry_id]["plant"]
+        data_schema = {
+            vol.Required("action", default=ACTION_EDIT_PLANT): selector(
+                {
+                    ATTR_SELECT: {
+                        ATTR_OPTIONS: [
+                            {
+                                "label": "Edit plant properties",
+                                "value": ACTION_EDIT_PLANT,
+                            },
+                            {
+                                "label": "Replace a sensor",
+                                "value": ACTION_REPLACE_SENSOR,
+                            },
+                        ]
+                    }
+                }
+            )
+        }
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(data_schema),
+            description_placeholders={"plant_name": self.plant.name},
+        )
+
+    async def async_step_plant_properties(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Manage the plant properties options."""
         if user_input is not None:
             if ATTR_SPECIES not in user_input or not re.match(
                 r"\w+", user_input[ATTR_SPECIES]
@@ -652,9 +694,160 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
         ] = cv.boolean
 
         return self.async_show_form(
-            step_id="init",
+            step_id="plant_properties",
             data_schema=vol.Schema(data_schema),
             description_placeholders={"plant_name": self.plant.name},
+        )
+
+    async def async_step_replace_sensor(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Show dropdown of current plant sensors to replace."""
+        if user_input is not None:
+            selected_entity_id = user_input.get("sensor_entity")
+            if selected_entity_id:
+                # Find the sensor entity and its config key
+                for sensor in self.plant.meter_entities:
+                    if sensor.entity_id == selected_entity_id:
+                        # Get the config key from the sensor's _config_key attribute
+                        if hasattr(sensor, "_config_key") and sensor._config_key:
+                            self.selected_sensor_entity_id = selected_entity_id
+                            self.selected_sensor_config_key = sensor._config_key
+                            return await self.async_step_select_new_sensor()
+                        break
+            # If no valid sensor selected, go back
+            return await self.async_step_replace_sensor()
+
+        self.plant = self.hass.data[DOMAIN][self.config_entry.entry_id]["plant"]
+        
+        # Build list of current sensors with their friendly names
+        sensor_options = []
+        for sensor in self.plant.meter_entities:
+            # Get friendly name from entity registry or use entity_id
+            entity_registry = er.async_get(self.hass)
+            if entity_entry := entity_registry.async_get(sensor.entity_id):
+                friendly_name = entity_entry.name or sensor.entity_id
+            else:
+                friendly_name = sensor.entity_id
+            
+            sensor_options.append(
+                {
+                    "label": friendly_name,
+                    "value": sensor.entity_id,
+                }
+            )
+
+        if not sensor_options:
+            # No sensors available, show error and go back
+            return self.async_show_form(
+                step_id="replace_sensor",
+                data_schema=vol.Schema({}),
+                errors={"base": "no_sensors"},
+                description_placeholders={"plant_name": self.plant.name},
+            )
+
+        data_schema = {
+            vol.Required("sensor_entity"): selector(
+                {
+                    ATTR_SELECT: {
+                        ATTR_OPTIONS: sensor_options,
+                    }
+                }
+            )
+        }
+
+        return self.async_show_form(
+            step_id="replace_sensor",
+            data_schema=vol.Schema(data_schema),
+            description_placeholders={"plant_name": self.plant.name},
+        )
+
+    async def async_step_select_new_sensor(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Show entity selector for new sensor, filtered by device_class."""
+        if user_input is not None:
+            new_sensor = user_input.get("new_sensor") or None
+            
+            # Update the sensor entity directly if it exists (this also updates config entry)
+            updated = False
+            for sensor in self.plant.meter_entities:
+                if (
+                    sensor.entity_id == self.selected_sensor_entity_id
+                    and hasattr(sensor, "replace_external_sensor")
+                ):
+                    sensor.replace_external_sensor(new_sensor)
+                    updated = True
+                    break
+            
+            # Fallback: update config entry directly if sensor entity not found
+            if not updated and self.selected_sensor_config_key:
+                new_data = dict(self.config_entry.data)
+                new_plant_info = dict(new_data.get(FLOW_PLANT_INFO, {}))
+                new_plant_info[self.selected_sensor_config_key] = new_sensor
+                new_data[FLOW_PLANT_INFO] = new_plant_info
+                
+                self.hass.config_entries.async_update_entry(
+                    self.config_entry, data=new_data
+                )
+
+            return self.async_create_entry(title="", data={})
+
+        # Find the selected sensor to get its device_class
+        selected_sensor = None
+        for sensor in self.plant.meter_entities:
+            if sensor.entity_id == self.selected_sensor_entity_id:
+                selected_sensor = sensor
+                break
+
+        if not selected_sensor:
+            return await self.async_step_replace_sensor()
+
+        # Get device_class from the sensor
+        device_class = None
+        if hasattr(selected_sensor, "_attr_device_class"):
+            device_class = selected_sensor._attr_device_class
+        elif hasattr(selected_sensor, "device_class"):
+            device_class = selected_sensor.device_class
+
+        # Build entity selector with device_class filter
+        entity_selector_config = {
+            ATTR_ENTITY: {
+                ATTR_DOMAIN: DOMAIN_SENSOR,
+            }
+        }
+        
+        # Add device_class filter if available and it's a standard SensorDeviceClass
+        if device_class and device_class in (
+            SensorDeviceClass.TEMPERATURE,
+            SensorDeviceClass.MOISTURE,
+            SensorDeviceClass.CONDUCTIVITY,
+            SensorDeviceClass.ILLUMINANCE,
+            SensorDeviceClass.HUMIDITY,
+            SensorDeviceClass.CO2,
+        ):
+            entity_selector_config[ATTR_ENTITY][ATTR_DEVICE_CLASS] = device_class
+        # For custom device classes (like ATTR_CONDUCTIVITY, ATTR_MOISTURE), we can't filter
+        # by device_class, so we'll show all sensors and let the user choose
+
+        data_schema = {
+            vol.Optional("new_sensor"): selector(entity_selector_config),
+        }
+
+        # Get friendly name for display
+        entity_registry = er.async_get(self.hass)
+        if entity_entry := entity_registry.async_get(self.selected_sensor_entity_id):
+            sensor_name = entity_entry.name or self.selected_sensor_entity_id
+        else:
+            sensor_name = self.selected_sensor_entity_id
+
+        return self.async_show_form(
+            step_id="select_new_sensor",
+            data_schema=vol.Schema(data_schema),
+            description_placeholders={
+                "plant_name": self.plant.name,
+                "sensor_name": sensor_name,
+            },
         )
 
 
