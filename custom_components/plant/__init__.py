@@ -207,9 +207,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     component = EntityComponent(_LOGGER, DOMAIN, hass)
     await component.async_add_entities(plant_entities)
 
-    # Add the entities to device registry together with plant
+    # Add the entities to device registry and tie to config entry
     device_id = plant.device_id
-    await _plant_add_to_device_registry(hass, plant_entities, device_id)
+    await _plant_add_to_device_registry(hass, plant_entities, device_id, entry)
 
     # Set up utility sensor
     hass.data.setdefault(DATA_UTILITY, {})
@@ -317,9 +317,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def _plant_add_to_device_registry(
-    hass: HomeAssistant, plant_entities: list[Entity], device_id: str
+    hass: HomeAssistant,
+    plant_entities: list[Entity],
+    device_id: str,
+    entry: ConfigEntry,
 ) -> None:
-    """Add all related entities to the correct device_id"""
+    """Add all related entities to the correct device and config entry."""
 
     # There must be a better way to do this, but I just can't find a way to set the
     # device_id when adding the entities.
@@ -329,7 +332,11 @@ async def _plant_add_to_device_registry(
             raise ConfigEntryNotReady(
                 f"Entity {entity.entity_id} not yet registered, retrying setup"
             )
-        erreg.async_update_entity(entity.registry_entry.entity_id, device_id=device_id)
+        erreg.async_update_entity(
+            entity.registry_entry.entity_id,
+            device_id=device_id,
+            config_entry_id=entry.entry_id,
+        )
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
