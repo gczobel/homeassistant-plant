@@ -9,6 +9,7 @@ from homeassistant.data_entry_flow import FlowResultType
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.plant.const import (
+    ACTION_EDIT_PLANT,
     ATTR_SEARCH_FOR,
     ATTR_SPECIES,
     CONF_MAX_CONDUCTIVITY,
@@ -806,6 +807,13 @@ class TestOptionsFlow:
         """Test updating species through options flow."""
         result = await hass.config_entries.options.async_init(init_integration.entry_id)
 
+        # Pass through the init step by choosing to edit plant properties
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"],
+            {"action": ACTION_EDIT_PLANT},
+        )
+        assert result["step_id"] == "plant_properties"
+
         result = await hass.config_entries.options.async_configure(
             result["flow_id"],
             {
@@ -824,6 +832,13 @@ class TestOptionsFlow:
     ) -> None:
         """Test toggling problem triggers through options flow."""
         result = await hass.config_entries.options.async_init(init_integration.entry_id)
+
+        # Pass through the init step by choosing to edit plant properties
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"],
+            {"action": ACTION_EDIT_PLANT},
+        )
+        assert result["step_id"] == "plant_properties"
 
         result = await hass.config_entries.options.async_configure(
             result["flow_id"],
@@ -856,6 +871,14 @@ class TestOptionsFlow:
         new_entity_picture = "https://example.com/updated.jpg"
 
         result = await hass.config_entries.options.async_init(init_integration.entry_id)
+
+        # Pass through the init step by choosing to edit plant properties
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"],
+            {"action": ACTION_EDIT_PLANT},
+        )
+        assert result["step_id"] == "plant_properties"
+
         result = await hass.config_entries.options.async_configure(
             result["flow_id"],
             {
@@ -885,6 +908,14 @@ class TestOptionsFlow:
         media_source_url = "media-source://media_source/local/plants/my_plant.jpg"
 
         result = await hass.config_entries.options.async_init(init_integration.entry_id)
+
+        # Pass through the init step by choosing to edit plant properties
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"],
+            {"action": ACTION_EDIT_PLANT},
+        )
+        assert result["step_id"] == "plant_properties"
+
         result = await hass.config_entries.options.async_configure(
             result["flow_id"],
             {
@@ -911,6 +942,14 @@ class TestOptionsFlow:
         local_path = "/local/plants/my_plant.jpg"
 
         result = await hass.config_entries.options.async_init(init_integration.entry_id)
+
+        # Pass through the init step by choosing to edit plant properties
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"],
+            {"action": ACTION_EDIT_PLANT},
+        )
+        assert result["step_id"] == "plant_properties"
+
         result = await hass.config_entries.options.async_configure(
             result["flow_id"],
             {

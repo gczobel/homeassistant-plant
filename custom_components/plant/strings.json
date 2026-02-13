@@ -168,9 +168,6 @@
         },
         "data_description": {
           "sensor_entity": "Select the plant sensor you want to replace"
-        },
-        "error": {
-          "no_sensors": "No sensors available for this plant"
         }
       },
       "select_new_sensor": {
@@ -183,6 +180,9 @@
           "new_sensor": "Select the physical sensor to use. Leave empty to remove the sensor."
         }
       }
+    },
+    "error": {
+      "no_sensors": "No sensors available for this plant"
     }
   },
   "services": {

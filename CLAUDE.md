@@ -42,9 +42,17 @@ This integration is part of a plant monitoring ecosystem:
 
 # Run all tests
 .venv/bin/pytest tests/ -v
+
+# Validate integration (hassfest) - requires Docker
+docker run --rm -v "$(pwd):/github/workspace" ghcr.io/home-assistant/hassfest
 ```
 
-The CI pipeline will fail if code is not properly formatted or if tests fail. Always verify both before committing.
+The CI pipeline will fail if:
+- Code is not properly formatted (black)
+- Tests fail (pytest)
+- Integration validation fails (hassfest)
+
+Always verify all three before committing.
 
 See DEVELOPMENT.md for full setup instructions.
 
