@@ -104,6 +104,12 @@ class TestIntegrationSetup:
         assert len(entities_before) > 0
         assert device_before is not None
 
+        # Verify the main plant entity is tied to the config entry
+        plant_entity_id = entity_registry.async_get_entity_id(DOMAIN, DOMAIN, entry_id)
+        assert plant_entity_id is not None
+        plant_entry = entity_registry.async_get(plant_entity_id)
+        assert plant_entry.config_entry_id == entry_id
+
         # Remove the config entry (this calls async_remove_entry)
         await hass.config_entries.async_remove(entry_id)
         await hass.async_block_till_done()
@@ -111,6 +117,9 @@ class TestIntegrationSetup:
         # Verify entities are removed from registry
         entities_after = er.async_entries_for_config_entry(entity_registry, entry_id)
         assert len(entities_after) == 0
+
+        # Verify the main plant entity is also removed
+        assert entity_registry.async_get(plant_entity_id) is None
 
         # Verify device is removed from registry
         device_after = device_registry.async_get_device(
