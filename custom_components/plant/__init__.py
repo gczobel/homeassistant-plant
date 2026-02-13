@@ -11,7 +11,6 @@ from homeassistant.components.utility_meter.const import (
     DATA_UTILITY,
 )
 from homeassistant.config_entries import SOURCE_IMPORT, ConfigEntry
-from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.const import (
     ATTR_ENTITY_PICTURE,
     ATTR_ICON,
@@ -24,6 +23,7 @@ from homeassistant.const import (
     Platform,
 )
 from homeassistant.core import HomeAssistant, ServiceCall, callback
+from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
