@@ -131,6 +131,9 @@ automation:
 
 ## 🚨 Problem Notification Automation
 
+> [!TIP]
+> The integration includes built-in [hysteresis](README.md#hysteresis) on all thresholds, so plants won't flap between OK and PROBLEM when a sensor value hovers near a boundary. This significantly reduces duplicate notifications without any extra configuration.
+
 Get notified when any plant has a problem:
 
 ```yaml

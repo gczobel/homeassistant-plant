@@ -104,6 +104,12 @@ class TestIntegrationSetup:
         assert len(entities_before) > 0
         assert device_before is not None
 
+        # Verify the main plant entity is tied to the config entry
+        plant_entity_id = entity_registry.async_get_entity_id(DOMAIN, DOMAIN, entry_id)
+        assert plant_entity_id is not None
+        plant_entry = entity_registry.async_get(plant_entity_id)
+        assert plant_entry.config_entry_id == entry_id
+
         # Remove the config entry (this calls async_remove_entry)
         await hass.config_entries.async_remove(entry_id)
         await hass.async_block_till_done()
@@ -112,11 +118,40 @@ class TestIntegrationSetup:
         entities_after = er.async_entries_for_config_entry(entity_registry, entry_id)
         assert len(entities_after) == 0
 
+        # Verify the main plant entity is also removed
+        assert entity_registry.async_get(plant_entity_id) is None
+
         # Verify device is removed from registry
         device_after = device_registry.async_get_device(
             identifiers={(DOMAIN, entry_id)}
         )
         assert device_after is None
+
+    async def test_setup_completes_when_registry_entry_not_immediate(
+        self,
+        hass: HomeAssistant,
+        mock_external_sensors: None,
+    ) -> None:
+        """Test setup completes gracefully when registry_entry is None initially.
+
+        The function should retry with registry lookup and give up gracefully
+        instead of blocking the entire setup with ConfigEntryNotReady.
+        """
+        from tests.conftest import create_plant_config_data
+
+        config_data = create_plant_config_data()
+        entry = MockConfigEntry(
+            domain=DOMAIN,
+            data=config_data,
+            entry_id="test_registry_delayed",
+        )
+        entry.add_to_hass(hass)
+
+        await hass.config_entries.async_setup(entry.entry_id)
+        await hass.async_block_till_done()
+
+        # Setup should complete successfully (not stuck in SETUP_RETRY)
+        assert entry.state.name == "LOADED"
 
     async def test_setup_entry_no_plant_info(
         self,
@@ -1312,6 +1347,400 @@ class TestPlantDevice:
         assert plant.dli_status is None
         # Plant should recover to OK
         assert plant.state == STATE_OK
+
+
+class TestHysteresis:
+    """Tests for hysteresis behavior on threshold checks."""
+
+    async def test_moisture_low_holds_within_hysteresis_band(
+        self,
+        hass: HomeAssistant,
+        init_integration: MockConfigEntry,
+    ) -> None:
+        """Test that moisture LOW state holds when value is within hysteresis band.
+
+        Default moisture: min=20, max=60, range=40, band=2.0 (5% of 40).
+        Enters PROBLEM at <20, should stay PROBLEM until >22.
+        """
+        plant = hass.data[DOMAIN][init_integration.entry_id][ATTR_PLANT]
+
+        # Step 1: Drop below min → PROBLEM
+        await set_external_sensor_states(
+            hass,
+            temperature=25.0,
+            moisture=15.0,
+            conductivity=1000.0,
+            illuminance=5000.0,
+            humidity=40.0,
+        )
+        await update_plant_sensors(hass, init_integration.entry_id)
+        assert plant.moisture_status == STATE_LOW
+        assert plant.state == STATE_PROBLEM
+
+        # Step 2: Rise to just above min but within band (20.5 < 20 + 2 = 22)
+        await set_external_sensor_states(
+            hass,
+            temperature=25.0,
+            moisture=20.5,
+            conductivity=1000.0,
+            illuminance=5000.0,
+            humidity=40.0,
+        )
+        await update_plant_sensors(hass, init_integration.entry_id)
+        assert plant.moisture_status == STATE_LOW  # Still held
+        assert plant.state == STATE_PROBLEM
+
+        # Step 3: Rise above band (23 > 22) → clears to OK
+        await set_external_sensor_states(
+            hass,
+            temperature=25.0,
+            moisture=23.0,
+            conductivity=1000.0,
+            illuminance=5000.0,
+            humidity=40.0,
+        )
+        await update_plant_sensors(hass, init_integration.entry_id)
+        assert plant.moisture_status == STATE_OK
+        assert plant.state == STATE_OK
+
+    async def test_moisture_high_holds_within_hysteresis_band(
+        self,
+        hass: HomeAssistant,
+        init_integration: MockConfigEntry,
+    ) -> None:
+        """Test that moisture HIGH state holds when value is within hysteresis band.
+
+        Default moisture: min=20, max=60, range=40, band=2.0.
+        Enters PROBLEM at >60, should stay PROBLEM until <58.
+        """
+        plant = hass.data[DOMAIN][init_integration.entry_id][ATTR_PLANT]
+
+        # Step 1: Rise above max → PROBLEM
+        await set_external_sensor_states(
+            hass,
+            temperature=25.0,
+            moisture=65.0,
+            conductivity=1000.0,
+            illuminance=5000.0,
+            humidity=40.0,
+        )
+        await update_plant_sensors(hass, init_integration.entry_id)
+        assert plant.moisture_status == STATE_HIGH
+        assert plant.state == STATE_PROBLEM
+
+        # Step 2: Drop to just below max but within band (59.0 >= 60 - 2 = 58)
+        await set_external_sensor_states(
+            hass,
+            temperature=25.0,
+            moisture=59.0,
+            conductivity=1000.0,
+            illuminance=5000.0,
+            humidity=40.0,
+        )
+        await update_plant_sensors(hass, init_integration.entry_id)
+        assert plant.moisture_status == STATE_HIGH  # Still held
+        assert plant.state == STATE_PROBLEM
+
+        # Step 3: Drop below band (57.0 < 58) → clears to OK
+        await set_external_sensor_states(
+            hass,
+            temperature=25.0,
+            moisture=57.0,
+            conductivity=1000.0,
+            illuminance=5000.0,
+            humidity=40.0,
+        )
+        await update_plant_sensors(hass, init_integration.entry_id)
+        assert plant.moisture_status == STATE_OK
+        assert plant.state == STATE_OK
+
+    async def test_temperature_low_holds_within_hysteresis_band(
+        self,
+        hass: HomeAssistant,
+        init_integration: MockConfigEntry,
+    ) -> None:
+        """Test temperature LOW hysteresis.
+
+        Default temperature: min=10, max=40, range=30, band=1.5.
+        Enters at <10, clears at >11.5.
+        """
+        plant = hass.data[DOMAIN][init_integration.entry_id][ATTR_PLANT]
+
+        # Drop below min
+        await set_external_sensor_states(
+            hass,
+            temperature=8.0,
+            moisture=40.0,
+            conductivity=1000.0,
+            illuminance=5000.0,
+            humidity=40.0,
+        )
+        await update_plant_sensors(hass, init_integration.entry_id)
+        assert plant.temperature_status == STATE_LOW
+
+        # Rise within band (11.0 <= 10 + 1.5 = 11.5)
+        await set_external_sensor_states(
+            hass,
+            temperature=11.0,
+            moisture=40.0,
+            conductivity=1000.0,
+            illuminance=5000.0,
+            humidity=40.0,
+        )
+        await update_plant_sensors(hass, init_integration.entry_id)
+        assert plant.temperature_status == STATE_LOW  # held
+
+        # Rise above band (12.0 > 11.5)
+        await set_external_sensor_states(
+            hass,
+            temperature=12.0,
+            moisture=40.0,
+            conductivity=1000.0,
+            illuminance=5000.0,
+            humidity=40.0,
+        )
+        await update_plant_sensors(hass, init_integration.entry_id)
+        assert plant.temperature_status == STATE_OK
+
+    async def test_no_hysteresis_on_fresh_state(
+        self,
+        hass: HomeAssistant,
+        init_integration: MockConfigEntry,
+    ) -> None:
+        """Test that hysteresis does not apply when state is fresh (None).
+
+        A value within the hysteresis band but above the min threshold
+        should be OK on first check, not held as LOW.
+        """
+        plant = hass.data[DOMAIN][init_integration.entry_id][ATTR_PLANT]
+
+        # Ensure fresh state (moisture_status is None before any reading)
+        assert plant.moisture_status is None
+
+        # Set moisture within hysteresis band (21 is > min=20 but < min+band=22)
+        await set_external_sensor_states(
+            hass,
+            temperature=25.0,
+            moisture=21.0,
+            conductivity=1000.0,
+            illuminance=5000.0,
+            humidity=40.0,
+        )
+        await update_plant_sensors(hass, init_integration.entry_id)
+
+        # Should be OK, not LOW — no previous LOW state to hold
+        assert plant.moisture_status == STATE_OK
+        assert plant.state == STATE_OK
+
+    async def test_hysteresis_resets_on_sensor_unavailable(
+        self,
+        hass: HomeAssistant,
+        init_integration: MockConfigEntry,
+    ) -> None:
+        """Test that hysteresis state resets when sensor becomes unavailable.
+
+        After reset, returning within band should be OK (fresh state).
+        """
+        plant = hass.data[DOMAIN][init_integration.entry_id][ATTR_PLANT]
+
+        # Enter PROBLEM
+        await set_external_sensor_states(
+            hass,
+            temperature=25.0,
+            moisture=15.0,
+            conductivity=1000.0,
+            illuminance=5000.0,
+            humidity=40.0,
+        )
+        await update_plant_sensors(hass, init_integration.entry_id)
+        assert plant.moisture_status == STATE_LOW
+
+        # Sensor goes unavailable → status reset
+        hass.states.async_set("sensor.test_moisture", STATE_UNAVAILABLE)
+        await hass.async_block_till_done()
+        await update_plant_sensors(hass, init_integration.entry_id)
+        assert plant.moisture_status is None
+
+        # Value returns within hysteresis band → should be OK (no held state)
+        await set_external_sensor_states(
+            hass,
+            temperature=25.0,
+            moisture=21.0,
+            conductivity=1000.0,
+            illuminance=5000.0,
+            humidity=40.0,
+        )
+        await update_plant_sensors(hass, init_integration.entry_id)
+        assert plant.moisture_status == STATE_OK
+
+    async def test_illuminance_high_holds_within_hysteresis_band(
+        self,
+        hass: HomeAssistant,
+        init_integration: MockConfigEntry,
+    ) -> None:
+        """Test illuminance HIGH hysteresis (max-only check).
+
+        Default illuminance: min=0, max=100000, range=100000, band=5000.
+        Enters at >100000, clears at <95000.
+        """
+        plant = hass.data[DOMAIN][init_integration.entry_id][ATTR_PLANT]
+
+        # Rise above max
+        await set_external_sensor_states(
+            hass,
+            temperature=25.0,
+            moisture=40.0,
+            conductivity=1000.0,
+            illuminance=110000.0,
+            humidity=40.0,
+        )
+        await update_plant_sensors(hass, init_integration.entry_id)
+        assert plant.illuminance_status == STATE_HIGH
+        assert plant.state == STATE_PROBLEM
+
+        # Drop within band (96000 >= 100000 - 5000 = 95000)
+        await set_external_sensor_states(
+            hass,
+            temperature=25.0,
+            moisture=40.0,
+            conductivity=1000.0,
+            illuminance=96000.0,
+            humidity=40.0,
+        )
+        await update_plant_sensors(hass, init_integration.entry_id)
+        assert plant.illuminance_status == STATE_HIGH  # held
+        assert plant.state == STATE_PROBLEM
+
+        # Drop below band (94000 < 95000)
+        await set_external_sensor_states(
+            hass,
+            temperature=25.0,
+            moisture=40.0,
+            conductivity=1000.0,
+            illuminance=94000.0,
+            humidity=40.0,
+        )
+        await update_plant_sensors(hass, init_integration.entry_id)
+        assert plant.illuminance_status == STATE_OK
+        assert plant.state == STATE_OK
+
+    async def test_dli_low_holds_within_hysteresis_band(
+        self,
+        hass: HomeAssistant,
+        init_integration: MockConfigEntry,
+    ) -> None:
+        """Test DLI LOW hysteresis.
+
+        Default DLI: min=2, max=30, range=28, band=1.4.
+        Enters at <2, clears at >3.4.
+        """
+        from unittest.mock import PropertyMock, patch
+
+        plant = hass.data[DOMAIN][init_integration.entry_id][ATTR_PLANT]
+
+        # Set normal sensor values first
+        await set_external_sensor_states(
+            hass,
+            temperature=25.0,
+            moisture=40.0,
+            conductivity=1000.0,
+            illuminance=5000.0,
+            humidity=40.0,
+        )
+        await update_plant_sensors(hass, init_integration.entry_id)
+
+        def mock_dli(last_period):
+            """Context manager to mock DLI sensor with given last_period."""
+            mock_attrs = {"last_period": last_period}
+            return (
+                patch.object(
+                    type(plant.dli),
+                    "extra_state_attributes",
+                    new_callable=PropertyMock,
+                    return_value=mock_attrs,
+                ),
+                patch.object(
+                    type(plant.dli),
+                    "native_value",
+                    new_callable=PropertyMock,
+                    return_value=last_period,
+                ),
+                patch.object(
+                    type(plant.dli),
+                    "state",
+                    new_callable=PropertyMock,
+                    return_value=str(last_period),
+                ),
+            )
+
+        # Step 1: Drop below min (1.0 < 2)
+        p1, p2, p3 = mock_dli(1.0)
+        with p1, p2, p3:
+            plant.update()
+        assert plant.dli_status == STATE_LOW
+        assert plant.state == STATE_PROBLEM
+
+        # Step 2: Rise within band (2.5 <= 2 + 1.4 = 3.4) → still LOW
+        p1, p2, p3 = mock_dli(2.5)
+        with p1, p2, p3:
+            plant.update()
+        assert plant.dli_status == STATE_LOW
+        assert plant.state == STATE_PROBLEM
+
+        # Step 3: Rise above band (4.0 > 3.4) → clears
+        p1, p2, p3 = mock_dli(4.0)
+        with p1, p2, p3:
+            plant.update()
+        assert plant.dli_status == STATE_OK
+        assert plant.state == STATE_OK
+
+    async def test_conductivity_hysteresis(
+        self,
+        hass: HomeAssistant,
+        init_integration: MockConfigEntry,
+    ) -> None:
+        """Test conductivity hysteresis.
+
+        Default conductivity: min=500, max=3000, range=2500, band=125.
+        Enters LOW at <500, clears at >625.
+        """
+        plant = hass.data[DOMAIN][init_integration.entry_id][ATTR_PLANT]
+
+        # Drop below min
+        await set_external_sensor_states(
+            hass,
+            temperature=25.0,
+            moisture=40.0,
+            conductivity=400.0,
+            illuminance=5000.0,
+            humidity=40.0,
+        )
+        await update_plant_sensors(hass, init_integration.entry_id)
+        assert plant.conductivity_status == STATE_LOW
+
+        # Rise within band (600 <= 500 + 125 = 625)
+        await set_external_sensor_states(
+            hass,
+            temperature=25.0,
+            moisture=40.0,
+            conductivity=600.0,
+            illuminance=5000.0,
+            humidity=40.0,
+        )
+        await update_plant_sensors(hass, init_integration.entry_id)
+        assert plant.conductivity_status == STATE_LOW  # held
+
+        # Rise above band (650 > 625)
+        await set_external_sensor_states(
+            hass,
+            temperature=25.0,
+            moisture=40.0,
+            conductivity=650.0,
+            illuminance=5000.0,
+            humidity=40.0,
+        )
+        await update_plant_sensors(hass, init_integration.entry_id)
+        assert plant.conductivity_status == STATE_OK
 
 
 class TestYamlImport:
