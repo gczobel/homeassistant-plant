@@ -155,6 +155,14 @@
       "init": {
         "title": "Opções",
         "description": "**{plant_name}**",
+        "menu_options": {
+          "plant_properties": "Editar propriedades da planta",
+          "replace_sensor": "Substituir sensores"
+        }
+      },
+      "plant_properties": {
+        "title": "Editar propriedades da planta",
+        "description": "Configurar {plant_name}",
         "data": {
           "check_days": "Dias de verificação de iluminação",
           "species": "Espécie",
@@ -165,15 +173,26 @@
           "conductivity_sensor": "Sensor de condutividade",
           "illuminance_sensor": "Sensor de iluminação",
           "humidity_sensor": "Sensor de humidade do ar",
-          "entity_picture": "URL da imagem. Será automaticamente atualizada se a espécie for encontrada no OpenPlantbook",
+          "entity_picture": "Imagem (URL, caminho /local/ ou URL media-source://)",
           "illuminance_trigger": "Usar iluminação como gatilho de problema",
           "dli_trigger": "Usar integral de luz diária (DLI) como gatilho de problema",
           "humidity_trigger": "Usar humidade do ar como gatilho de problema",
           "conductivity_trigger": "Usar condutividade como gatilho de problema",
           "moisture_trigger": "Usar humidade do solo como gatilho de problema",
-          "temperature_trigger": "Usar temperatura como gatilho de problema",
-          "co2_trigger": "Usar CO2 como gatilho de problema",
-          "soil_temperature_trigger": "Usar temperatura do solo como gatilho de problema"
+          "temperature_trigger": "Usar temperatura como gatilho de problema"
+        }
+      },
+      "replace_sensor": {
+        "title": "Selecionar sensores",
+        "description": "Selecionar sensores externos para {plant_name}. Todos os sensores são opcionais.",
+        "data": {
+          "temperature_sensor": "Sensor de temperatura",
+          "moisture_sensor": "Sensor de humidade do solo",
+          "conductivity_sensor": "Sensor de condutividade",
+          "illuminance_sensor": "Sensor de iluminação",
+          "humidity_sensor": "Sensor de humidade do ar",
+          "co2_sensor": "Sensor de CO2",
+          "soil_temperature_sensor": "Sensor de temperatura do solo"
         }
       }
     }

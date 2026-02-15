@@ -155,6 +155,14 @@
       "init": {
         "title": "Indstillinger",
         "description": "**{plant_name}**",
+        "menu_options": {
+          "plant_properties": "Rediger planteegenskaber",
+          "replace_sensor": "Erstat sensorer"
+        }
+      },
+      "plant_properties": {
+        "title": "Rediger planteegenskaber",
+        "description": "Konfigurer {plant_name}",
         "data": {
           "check_days": "Dage til kontrol af lysstyrke",
           "species": "Art",
@@ -165,15 +173,26 @@
           "conductivity_sensor": "Ledningsevnesensor",
           "illuminance_sensor": "Lysstyrkesensor",
           "humidity_sensor": "Luftfugtighedssensor",
-          "entity_picture": "Billed-URL. Opdateres automatisk, hvis arten findes i OpenPlantbook",
+          "entity_picture": "Billede (URL, /local/-sti eller media-source://-URL)",
           "illuminance_trigger": "Brug lysstyrke som problemudløser",
           "dli_trigger": "Brug dagligt lysintegral (DLI) som problemudløser",
           "humidity_trigger": "Brug luftfugtighed som problemudløser",
           "conductivity_trigger": "Brug ledningsevne som problemudløser",
           "moisture_trigger": "Brug jordfugtighed som problemudløser",
-          "temperature_trigger": "Brug temperatur som problemudløser",
-          "co2_trigger": "Brug CO2 som problemudløser",
-          "soil_temperature_trigger": "Brug jordtemperatur som problemudløser"
+          "temperature_trigger": "Brug temperatur som problemudløser"
+        }
+      },
+      "replace_sensor": {
+        "title": "Vælg sensorer",
+        "description": "Vælg eksterne sensorer for {plant_name}. Alle sensorer er valgfrie.",
+        "data": {
+          "temperature_sensor": "Temperatursensor",
+          "moisture_sensor": "Jordfugtighedssensor",
+          "conductivity_sensor": "Ledningsevnesensor",
+          "illuminance_sensor": "Lysstyrkesensor",
+          "humidity_sensor": "Luftfugtighedssensor",
+          "co2_sensor": "CO2-sensor",
+          "soil_temperature_sensor": "Jordtemperatursensor"
         }
       }
     }

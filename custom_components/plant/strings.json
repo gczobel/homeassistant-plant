@@ -131,11 +131,9 @@
       "init": {
         "title": "Options",
         "description": "What do you want to do?",
-        "data": {
-          "action": "Action"
-        },
-        "data_description": {
-          "action": "Choose an action to perform"
+        "menu_options": {
+          "plant_properties": "Edit plant properties",
+          "replace_sensor": "Replace sensors"
         }
       },
       "plant_properties": {
@@ -161,23 +159,16 @@
         }
       },
       "replace_sensor": {
-        "title": "Replace sensor",
-        "description": "Select which sensor to replace for {plant_name}",
+        "title": "Select sensors",
+        "description": "Select external sensors for {plant_name}. All sensors are optional.",
         "data": {
-          "sensor_entity": "Plant sensor"
-        },
-        "data_description": {
-          "sensor_entity": "Select the plant sensor you want to replace"
-        }
-      },
-      "select_new_sensor": {
-        "title": "Select new sensor",
-        "description": "Select a new physical sensor for {sensor_name} on {plant_name}",
-        "data": {
-          "new_sensor": "New sensor"
-        },
-        "data_description": {
-          "new_sensor": "Select the physical sensor to use. Leave empty to remove the sensor."
+          "temperature_sensor": "Temperature sensor",
+          "moisture_sensor": "Soil moisture sensor",
+          "conductivity_sensor": "Conductivity sensor",
+          "illuminance_sensor": "Illuminance sensor",
+          "humidity_sensor": "Air humidity sensor",
+          "co2_sensor": "CO2 sensor",
+          "soil_temperature_sensor": "Soil temperature sensor"
         }
       }
     },
