@@ -276,7 +276,8 @@ class PlantMinMax(RestoreNumber):
         state = await self.async_get_last_number_data()
         if not state:
             return
-        self._attr_native_value = state.native_value
+        if state.native_value is not None:
+            self._attr_native_value = state.native_value
         self._attr_native_unit_of_measurement = state.native_unit_of_measurement
         # We track changes to our own state so we can update ourselves if state is changed
         # from the UI or by other means
