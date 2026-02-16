@@ -986,9 +986,7 @@ class PlantDevice(Entity):
         try:
             return float(value)
         except (ValueError, TypeError):
-            _LOGGER.warning(
-                "Sensor %s has non-numeric value: %s", entity_id, value
-            )
+            _LOGGER.warning("Sensor %s has non-numeric value: %s", entity_id, value)
             return None
 
     def _check_threshold(self, value, min_entity, max_entity, current_status):
@@ -1112,9 +1110,7 @@ class PlantDevice(Entity):
             humidity = getattr(
                 self.hass.states.get(self.sensor_humidity.entity_id), "state", None
             )
-            humidity_val = self._safe_float(
-                humidity, self.sensor_humidity.entity_id
-            )
+            humidity_val = self._safe_float(humidity, self.sensor_humidity.entity_id)
             if humidity_val is not None:
                 known_state = True
                 self.humidity_status = self._check_threshold(
@@ -1231,9 +1227,7 @@ class PlantDevice(Entity):
         ):
             known_state = True
             try:
-                dli_value = float(
-                    self.dli.extra_state_attributes.get("last_period", 0)
-                )
+                dli_value = float(self.dli.extra_state_attributes.get("last_period", 0))
             except (ValueError, TypeError):
                 _LOGGER.warning(
                     "DLI last_period has non-numeric value: %s",
