@@ -206,6 +206,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Add all the entities to Hass
     component = EntityComponent(_LOGGER, DOMAIN, hass)
     await component.async_add_entities(plant_entities)
+    hass.data[DOMAIN][entry.entry_id]["component"] = component
 
     # Add the entities to device registry and tie to config entry
     device_id = plant.device_id
@@ -290,6 +291,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         schema=SERVICE_REPLACE_SENSOR_SCHEMA,
     )
     websocket_api.async_register_command(hass, ws_get_info)
+
+    if plant.hass is None:
+        _LOGGER.error(
+            "Plant entity %s was not added to Home Assistant "
+            "(possible duplicate unique_id). Aborting setup for %s",
+            plant.entity_id,
+            entry.title,
+        )
+        return False
+
     plant.async_schedule_update_ha_state(True)
 
     # Disable entities that have no external sensor configured
@@ -367,6 +378,13 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     plant_data = hass.data.get(DOMAIN, {}).get(entry.entry_id, {})
     if ATTR_PLANT in plant_data:
         plant_data[ATTR_PLANT].plant_complete = False
+
+    # Remove the plant entity from the EntityComponent so reloads don't
+    # hit a duplicate unique_id error
+    plant = plant_data.get(ATTR_PLANT)
+    component = plant_data.get("component")
+    if component and plant and plant.entity_id:
+        await component.async_remove_entity(plant.entity_id)
 
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
