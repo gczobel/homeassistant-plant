@@ -964,15 +964,36 @@ class PlantDevice(Entity):
         """Disable or enable entities based on whether an external sensor is configured."""
         ent_reg = er.async_get(self.hass)
         has_sensor = meter_sensor.external_sensor is not None
+        _LOGGER.debug(
+            "update_entity_disabled_state: meter=%s, has_sensor=%s, external=%s",
+            meter_sensor.entity_id,
+            has_sensor,
+            meter_sensor.external_sensor,
+        )
         for entity in self._get_related_entities_for_sensor(meter_sensor):
             if entity is None:
                 continue
             entry = ent_reg.async_get(entity.entity_id)
             if entry is None:
+                _LOGGER.warning(
+                    "Entity %s not found in registry, skipping disable/enable",
+                    entity.entity_id,
+                )
                 continue
             if has_sensor:
                 if entry.disabled_by == er.RegistryEntryDisabler.INTEGRATION:
+                    _LOGGER.debug(
+                        "Enabling %s (was disabled by integration)",
+                        entry.entity_id,
+                    )
                     ent_reg.async_update_entity(entry.entity_id, disabled_by=None)
+                elif entry.disabled_by is not None:
+                    _LOGGER.warning(
+                        "Entity %s is disabled by %s (not by integration), "
+                        "cannot auto-enable — please enable manually via the UI",
+                        entry.entity_id,
+                        entry.disabled_by,
+                    )
             else:
                 if entry.disabled_by is None:
                     ent_reg.async_update_entity(

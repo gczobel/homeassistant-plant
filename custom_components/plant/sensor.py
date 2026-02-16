@@ -392,6 +392,8 @@ class PlantCurrentStatus(RestoreSensor):
     @callback
     def _schedule_immediate_update(self) -> None:
         """Schedule an immediate state update."""
+        if not self.enabled:
+            return
         self.async_schedule_update_ha_state(True)
 
     @callback
