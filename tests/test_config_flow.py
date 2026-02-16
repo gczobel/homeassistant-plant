@@ -27,6 +27,7 @@ from custom_components.plant.const import (
     FLOW_PLANT_INFO,
     FLOW_PLANT_LIMITS,
     FLOW_RIGHT_PLANT,
+    FLOW_SENSOR_CO2,
     FLOW_SENSOR_ILLUMINANCE,
     FLOW_SENSOR_MOISTURE,
     FLOW_SENSOR_TEMPERATURE,
@@ -1061,3 +1062,58 @@ class TestOptionsFlow:
 
         # Sensor should remain the same
         assert plant.sensor_temperature.external_sensor == original_sensor
+
+    async def test_options_flow_replace_sensor_disabled_entity(
+        self,
+        hass: HomeAssistant,
+        init_integration: MockConfigEntry,
+    ) -> None:
+        """Test replacing a sensor when the entity is disabled (hass is None).
+
+        Reproduces the crash from issue #359 where a disabled sensor entity
+        (e.g. CO2 with no external sensor) has self.hass = None, causing
+        replace_external_sensor() to crash with AttributeError.
+        """
+        entry = init_integration
+        plant = hass.data[DOMAIN][entry.entry_id]["plant"]
+
+        # Simulate a disabled entity by setting hass to None on the sensor.
+        # In production, disabled entities never have async_added_to_hass
+        # called, so self.hass remains None.
+        saved_hass = plant.sensor_co2.hass
+        plant.sensor_co2.hass = None
+
+        # Set up a new sensor entity in HA
+        hass.states.async_set(
+            "sensor.new_co2",
+            "800",
+            {"unit_of_measurement": "ppm", "device_class": "carbon_dioxide"},
+        )
+
+        try:
+            result = await hass.config_entries.options.async_init(entry.entry_id)
+            assert result["type"] == FlowResultType.MENU
+
+            result = await hass.config_entries.options.async_configure(
+                result["flow_id"],
+                {"next_step_id": "replace_sensor"},
+            )
+            assert result["step_id"] == "replace_sensor"
+
+            # Submit with a new CO2 sensor — should NOT crash
+            result = await hass.config_entries.options.async_configure(
+                result["flow_id"],
+                {
+                    FLOW_SENSOR_CO2: "sensor.new_co2",
+                },
+            )
+
+            assert result["type"] == FlowResultType.CREATE_ENTRY
+            await hass.async_block_till_done()
+
+            # Verify the config entry data was updated directly
+            plant_info = entry.data.get(FLOW_PLANT_INFO, {})
+            assert plant_info[FLOW_SENSOR_CO2] == "sensor.new_co2"
+        finally:
+            # Restore hass so teardown can clean up properly
+            plant.sensor_co2.hass = saved_hass
