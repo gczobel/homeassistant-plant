@@ -993,6 +993,14 @@ class PlantDevice(Entity):
             min_val = float(min_entity.state)
             max_val = float(max_entity.state)
         except (ValueError, TypeError):
+            _LOGGER.warning(
+                "Threshold entity has non-numeric state "
+                "(min=%s [%s], max=%s [%s]) — skipping check",
+                min_entity.entity_id,
+                min_entity.state,
+                max_entity.entity_id,
+                max_entity.state,
+            )
             return current_status
         band = (max_val - min_val) * HYSTERESIS_FRACTION
 
