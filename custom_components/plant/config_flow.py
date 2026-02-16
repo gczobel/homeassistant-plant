@@ -662,8 +662,19 @@ class OptionsFlowHandler(config_entries.OptionsFlow):
                 old_val = plant_info.get(key)
                 if new_val != old_val:
                     sensor = getattr(self.plant, attr_name, None)
-                    if sensor:
+                    if sensor and sensor.hass is not None:
                         sensor.replace_external_sensor(new_val)
+                    else:
+                        # Sensor entity is disabled (not added to HA).
+                        # Update config_entry.data directly; the entity
+                        # will pick up the new sensor when enabled.
+                        new_data = dict(self.config_entry.data)
+                        new_plant_info = dict(new_data.get(FLOW_PLANT_INFO, {}))
+                        new_plant_info[key] = new_val
+                        new_data[FLOW_PLANT_INFO] = new_plant_info
+                        self.hass.config_entries.async_update_entry(
+                            self.config_entry, data=new_data
+                        )
             # Preserve existing options (triggers, image, species, etc.)
             return self.async_create_entry(
                 title="", data=dict(self.config_entry.options)
