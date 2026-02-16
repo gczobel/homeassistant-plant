@@ -277,8 +277,27 @@ class PlantMinMax(RestoreNumber):
         if not state:
             return
         if state.native_value is not None:
-            self._attr_native_value = state.native_value
-        self._attr_native_unit_of_measurement = state.native_unit_of_measurement
+            try:
+                float(state.native_value)
+            except (ValueError, TypeError):
+                _LOGGER.warning(
+                    "Ignoring invalid restored value %r for %s, using default %s",
+                    state.native_value,
+                    self.entity_id,
+                    self._default_value,
+                )
+            else:
+                self._attr_native_value = state.native_value
+        if state.native_unit_of_measurement is not None:
+            self._attr_native_unit_of_measurement = state.native_unit_of_measurement
+        # Final safety net: ensure we always have a valid numeric value
+        if self._attr_native_value is None:
+            _LOGGER.warning(
+                "No valid value for %s after restore, resetting to default %s",
+                self.entity_id,
+                self._default_value,
+            )
+            self._attr_native_value = self._default_value
         # We track changes to our own state so we can update ourselves if state is changed
         # from the UI or by other means
         async_track_state_change_event(
@@ -372,6 +391,15 @@ class PlantMaxTemperature(PlantMinMax):
             ATTR_UNIT_OF_MEASUREMENT
         ):
             return
+        try:
+            current_value = float(self.state)
+        except (ValueError, TypeError):
+            _LOGGER.warning(
+                "Cannot convert temperature for %s: state is %s",
+                self.entity_id,
+                self.state,
+            )
+            return
         new_state = self._attr_state
         if (
             old_attributes.get(ATTR_UNIT_OF_MEASUREMENT) == UnitOfTemperature.FAHRENHEIT
@@ -380,7 +408,7 @@ class PlantMaxTemperature(PlantMinMax):
         ):
             new_state = round(
                 TemperatureConverter.convert(
-                    float(self.state),
+                    current_value,
                     UnitOfTemperature.FAHRENHEIT,
                     UnitOfTemperature.CELSIUS,
                 )
@@ -398,7 +426,7 @@ class PlantMaxTemperature(PlantMinMax):
         ):
             new_state = round(
                 TemperatureConverter.convert(
-                    float(self.state),
+                    current_value,
                     UnitOfTemperature.CELSIUS,
                     UnitOfTemperature.FAHRENHEIT,
                 )
@@ -446,6 +474,15 @@ class PlantMinTemperature(PlantMinMax):
             ATTR_UNIT_OF_MEASUREMENT
         ):
             return
+        try:
+            current_value = float(self.state)
+        except (ValueError, TypeError):
+            _LOGGER.warning(
+                "Cannot convert temperature for %s: state is %s",
+                self.entity_id,
+                self.state,
+            )
+            return
         new_state = self._attr_state
         if (
             old_attributes.get(ATTR_UNIT_OF_MEASUREMENT) == UnitOfTemperature.FAHRENHEIT
@@ -454,7 +491,7 @@ class PlantMinTemperature(PlantMinMax):
         ):
             new_state = round(
                 TemperatureConverter.convert(
-                    float(self.state),
+                    current_value,
                     UnitOfTemperature.FAHRENHEIT,
                     UnitOfTemperature.CELSIUS,
                 )
@@ -472,7 +509,7 @@ class PlantMinTemperature(PlantMinMax):
         ):
             new_state = round(
                 TemperatureConverter.convert(
-                    float(self.state),
+                    current_value,
                     UnitOfTemperature.CELSIUS,
                     UnitOfTemperature.FAHRENHEIT,
                 )
@@ -750,6 +787,15 @@ class PlantMaxSoilTemperature(PlantMinMax):
             ATTR_UNIT_OF_MEASUREMENT
         ):
             return
+        try:
+            current_value = float(self.state)
+        except (ValueError, TypeError):
+            _LOGGER.warning(
+                "Cannot convert temperature for %s: state is %s",
+                self.entity_id,
+                self.state,
+            )
+            return
         new_state = self._attr_state
         if (
             old_attributes.get(ATTR_UNIT_OF_MEASUREMENT) == UnitOfTemperature.FAHRENHEIT
@@ -758,7 +804,7 @@ class PlantMaxSoilTemperature(PlantMinMax):
         ):
             new_state = round(
                 TemperatureConverter.convert(
-                    float(self.state),
+                    current_value,
                     UnitOfTemperature.FAHRENHEIT,
                     UnitOfTemperature.CELSIUS,
                 )
@@ -771,7 +817,7 @@ class PlantMaxSoilTemperature(PlantMinMax):
         ):
             new_state = round(
                 TemperatureConverter.convert(
-                    float(self.state),
+                    current_value,
                     UnitOfTemperature.CELSIUS,
                     UnitOfTemperature.FAHRENHEIT,
                 )
@@ -817,6 +863,15 @@ class PlantMinSoilTemperature(PlantMinMax):
             ATTR_UNIT_OF_MEASUREMENT
         ):
             return
+        try:
+            current_value = float(self.state)
+        except (ValueError, TypeError):
+            _LOGGER.warning(
+                "Cannot convert temperature for %s: state is %s",
+                self.entity_id,
+                self.state,
+            )
+            return
         new_state = self._attr_state
         if (
             old_attributes.get(ATTR_UNIT_OF_MEASUREMENT) == UnitOfTemperature.FAHRENHEIT
@@ -825,7 +880,7 @@ class PlantMinSoilTemperature(PlantMinMax):
         ):
             new_state = round(
                 TemperatureConverter.convert(
-                    float(self.state),
+                    current_value,
                     UnitOfTemperature.FAHRENHEIT,
                     UnitOfTemperature.CELSIUS,
                 )
@@ -838,7 +893,7 @@ class PlantMinSoilTemperature(PlantMinMax):
         ):
             new_state = round(
                 TemperatureConverter.convert(
-                    float(self.state),
+                    current_value,
                     UnitOfTemperature.CELSIUS,
                     UnitOfTemperature.FAHRENHEIT,
                 )
