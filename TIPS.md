@@ -10,6 +10,7 @@ Practical tips, template examples, and workarounds for common situations with th
   - [🔧 Fixing Sensors with Wrong or Missing Device Class](#-fixing-sensors-with-wrong-or-missing-device-class)
   - [💧 Auto-Watering with Averaged Moisture](#-auto-watering-with-averaged-moisture)
   - [🚨 Problem Notification Automation](#-problem-notification-automation)
+  - [🌤️ Weather Forecast Warnings for Outdoor Plants](#️-weather-forecast-warnings-for-outdoor-plants)
   - [🌡️ Combining Multiple Temperature Sources](#️-combining-multiple-temperature-sources)
   - [📊 Export Plant Config as YAML](#-export-plant-config-as-yaml)
 
@@ -165,6 +166,135 @@ To include which specific sensor triggered the issue, check the plant's attribut
               {% endif %}
             {% endfor %}
 ```
+
+---
+
+## 🌤️ Weather Forecast Warnings for Outdoor Plants
+
+Get warned the evening before when tomorrow's forecast shows temperatures outside your outdoor plants' configured thresholds — giving you time to move them indoors or cover them.
+
+This automation combines two things you already have: your weather integration's forecast and the per-plant threshold entities created by Plant Monitor (`number.<plant>_min_temperature`, etc.).
+
+```yaml
+automation:
+  - alias: "Plant weather warning"
+    description: >
+      Compares tomorrow's weather forecast against outdoor plants'
+      temperature thresholds. Notifies if any plant may be at risk.
+
+    trigger:
+      # ── When to check ─────────────────────────────────────────
+      # Evening gives you time to act before overnight lows.
+      # Adjust the time to fit your routine.
+      - platform: time
+        at: "18:00:00"
+
+    action:
+      # ── Step 1: Fetch the daily forecast ───────────────────────
+      # Replace "weather.home" with your weather entity.
+      # You can test what your integration returns in
+      # Developer Tools → Actions → weather.get_forecasts.
+      - action: weather.get_forecasts
+        target:
+          entity_id: weather.home
+        data:
+          type: daily
+        response_variable: forecast
+
+      # ── Step 2: Extract tomorrow's temperatures ────────────────
+      - variables:
+          # Daily forecasts typically list today as [0] and tomorrow
+          # as [1]. Check the "datetime" field in the response from
+          # Developer Tools to verify this for your weather integration.
+          tomorrow: "{{ forecast['weather.home'].forecast[1] }}"
+          forecast_high: "{{ tomorrow.temperature | float }}"
+          forecast_low: "{{ tomorrow.templow | float }}"
+
+          # ── Your outdoor plants ────────────────────────────────
+          # List only plants that are actually outdoors. Indoor
+          # plants aren't affected by weather and don't need this.
+          outdoor_plants:
+            - plant.rose
+            - plant.tomato
+            - plant.basil
+
+          # ── Step 3: Check each plant's thresholds ──────────────
+          # For each plant, we look up its min/max temperature
+          # threshold entities. These follow the naming pattern:
+          #
+          #   number.<plant_slug>_max_temperature
+          #   number.<plant_slug>_min_temperature
+          #
+          # where <plant_slug> is the part after "plant." in the
+          # entity ID (e.g. plant.rose → number.rose_min_temperature).
+          #
+          # The default values (-999 / 999) ensure that a missing
+          # threshold entity never triggers a false warning.
+          warnings: >
+            {% set ns = namespace(items=[]) %}
+            {% for plant_id in outdoor_plants %}
+              {% set name = state_attr(plant_id, 'friendly_name') %}
+              {% set slug = plant_id | replace('plant.', '') %}
+              {% set min_t = states('number.' ~ slug ~ '_min_temperature') | float(-999) %}
+              {% set max_t = states('number.' ~ slug ~ '_max_temperature') | float(999) %}
+              {% if forecast_low < min_t %}
+                {% set ns.items = ns.items + [
+                  name ~ ' — forecast low ' ~ forecast_low ~ '° is below min threshold ' ~ min_t ~ '°'
+                ] %}
+              {% endif %}
+              {% if forecast_high > max_t %}
+                {% set ns.items = ns.items + [
+                  name ~ ' — forecast high ' ~ forecast_high ~ '° exceeds max threshold ' ~ max_t ~ '°'
+                ] %}
+              {% endif %}
+            {% endfor %}
+            {{ ns.items }}
+
+      # ── Step 4: Only notify when there's something to report ───
+      - condition: template
+        value_template: "{{ warnings | length > 0 }}"
+
+      # ── Step 5: Send the notification ──────────────────────────
+      # Replace with your preferred notify service.
+      - action: notify.mobile_app
+        data:
+          title: "Plant weather warning"
+          message: >
+            Tomorrow's forecast ({{ forecast_low }}°–{{ forecast_high }}°)
+            may affect these plants:
+            {% for w in warnings %}
+            - {{ w }}
+            {% endfor %}
+```
+
+### Customizing
+
+**Use an area instead of a manual list.** If all your outdoor plants are in the same area, replace the `outdoor_plants` variable with:
+
+```yaml
+          outdoor_plants: >
+            {{ area_entities("garden") | select("match", "^plant\\.") | list }}
+```
+
+This picks up new plants automatically when they're added to the area.
+
+**Add humidity checks.** If your weather integration includes humidity in its daily forecast, extend the comparison inside the `{% for plant_id ... %}` loop:
+
+```yaml
+              {% set min_h = states('number.' ~ slug ~ '_min_humidity') | float(-999) %}
+              {% set max_h = states('number.' ~ slug ~ '_max_humidity') | float(999) %}
+              {% if tomorrow.humidity is defined %}
+                {% if tomorrow.humidity | float < min_h %}
+                  {% set ns.items = ns.items + [name ~ ' — humidity ' ~ tomorrow.humidity ~ '% below min ' ~ min_h ~ '%'] %}
+                {% endif %}
+                {% if tomorrow.humidity | float > max_h %}
+                  {% set ns.items = ns.items + [name ~ ' — humidity ' ~ tomorrow.humidity ~ '% above max ' ~ max_h ~ '%'] %}
+                {% endif %}
+              {% endif %}
+```
+
+> [!NOTE]
+> Not all weather integrations include humidity in their daily forecast. Check what fields your integration provides in **Developer Tools** → **Actions** → `weather.get_forecasts`.
 
 ---
 
