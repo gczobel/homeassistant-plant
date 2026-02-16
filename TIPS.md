@@ -54,10 +54,10 @@ template:
 
 ### Option 3: Use `replace_sensor` After Setup
 
-Sensor replacement has **more relaxed** validation than the initial setup. You can:
+The `plant.replace_sensor` action has **more relaxed** validation than the setup flow and the **Configure** → **Replace sensors** UI — it does not filter by `device_class`, so it accepts any `sensor.*` entity. You can:
 
 1. Set up the plant **without** the problematic sensor
-2. Use **Configure** → **Replace sensors** to assign it from the UI, or use **Developer Tools** → **Actions** → `plant.replace_sensor`
+2. Use **Developer Tools** → **Actions** → `plant.replace_sensor` to assign it
 
 ```yaml
 action: plant.replace_sensor

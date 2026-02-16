@@ -301,7 +301,7 @@ The sensor dropdowns filter by `device_class`. Some integrations don't set the c
 
 **Solutions:**
 1. Report the issue to the physical sensor's integration maintainer
-2. Add the plant without that sensor, then use **Configure** → **Replace sensors** or the `plant.replace_sensor` action (its checks are more relaxed)
+2. Add the plant without that sensor, then use the `plant.replace_sensor` action (it doesn't filter by `device_class`)
 3. Create a template sensor with the correct device class:
 
 ```yaml
