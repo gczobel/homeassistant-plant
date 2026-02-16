@@ -640,10 +640,20 @@ class PlantCurrentPpfd(PlantCurrentStatus):
         if value is None or value == STATE_UNAVAILABLE or value == STATE_UNKNOWN:
             return None
 
+        try:
+            numeric_value = float(value)
+        except (ValueError, TypeError):
+            _LOGGER.warning(
+                "PPFD source %s has non-numeric value: %s",
+                self.external_sensor,
+                value,
+            )
+            return None
+
         # Check if source already provides PPFD
         if self._source_is_ppfd:
             # Pass through unchanged - source already provides PPFD
-            return float(value)
+            return numeric_value
 
         # Convert from lux to PPFD (existing logic)
         # Use plant's configurable conversion factor, fallback to default
@@ -652,8 +662,15 @@ class PlantCurrentPpfd(PlantCurrentStatus):
             self._plant.lux_to_ppfd is not None
             and self._plant.lux_to_ppfd.native_value is not None
         ):
-            lux_to_ppfd = float(self._plant.lux_to_ppfd.native_value)
-        return float(value) * lux_to_ppfd / 1000000
+            try:
+                lux_to_ppfd = float(self._plant.lux_to_ppfd.native_value)
+            except (ValueError, TypeError):
+                _LOGGER.warning(
+                    "Lux-to-PPFD factor has non-numeric value: %s, using default %s",
+                    self._plant.lux_to_ppfd.native_value,
+                    DEFAULT_LUX_TO_PPFD,
+                )
+        return numeric_value * lux_to_ppfd / 1000000
 
     async def async_update(self) -> None:
         """Run on every update to allow for changes from the GUI and service call"""
