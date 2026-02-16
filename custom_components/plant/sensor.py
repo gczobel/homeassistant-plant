@@ -263,6 +263,12 @@ class PlantCurrentStatus(RestoreSensor):
         if not self._config_key:
             return
 
+        # Skip update if value hasn't changed (avoids spurious config entry
+        # modifications during state restoration that can trigger reloads)
+        current_plant_info = self._config.data.get(FLOW_PLANT_INFO, {})
+        if current_plant_info.get(self._config_key) == new_sensor:
+            return
+
         # Get current data and update the sensor assignment
         new_data = dict(self._config.data)
         new_plant_info = dict(new_data.get(FLOW_PLANT_INFO, {}))
