@@ -54,10 +54,10 @@ template:
 
 ### Option 3: Use `replace_sensor` After Setup
 
-The `replace_sensor` action has **more relaxed** validation than the initial setup. You can:
+Sensor replacement has **more relaxed** validation than the initial setup. You can:
 
 1. Set up the plant **without** the problematic sensor
-2. Use **Developer Tools** → **Actions** → `plant.replace_sensor` to assign it afterward
+2. Use **Configure** → **Replace sensors** to assign it from the UI, or use **Developer Tools** → **Actions** → `plant.replace_sensor`
 
 ```yaml
 action: plant.replace_sensor
@@ -75,7 +75,7 @@ data:
 |--------|------|------|
 | `customize.yaml` | Simple, no extra entities | Affects the sensor globally |
 | Template sensor | Full control, can rename/process | Extra entity to maintain |
-| `replace_sensor` | No config changes needed | Slightly less convenient |
+| `replace_sensor` | No config changes needed, available from UI | Sensor must be enabled first |
 
 > [!TIP]
 > Regardless of the workaround, **report the missing `device_class` to the integration that owns the physical sensor**. That's the only way to fix it permanently for everyone.
