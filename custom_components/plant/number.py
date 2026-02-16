@@ -277,7 +277,17 @@ class PlantMinMax(RestoreNumber):
         if not state:
             return
         if state.native_value is not None:
-            self._attr_native_value = state.native_value
+            try:
+                float(state.native_value)
+            except (ValueError, TypeError):
+                _LOGGER.warning(
+                    "Ignoring invalid restored value %r for %s, using default %s",
+                    state.native_value,
+                    self.entity_id,
+                    self._default_value,
+                )
+            else:
+                self._attr_native_value = state.native_value
         self._attr_native_unit_of_measurement = state.native_unit_of_measurement
         # We track changes to our own state so we can update ourselves if state is changed
         # from the UI or by other means

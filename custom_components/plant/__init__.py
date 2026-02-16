@@ -989,12 +989,11 @@ class PlantDevice(Entity):
         When already in a problem state, require the value to cross back
         by a margin (hysteresis band) before clearing.
         """
-        if min_entity.state in (STATE_UNKNOWN, STATE_UNAVAILABLE):
+        try:
+            min_val = float(min_entity.state)
+            max_val = float(max_entity.state)
+        except (ValueError, TypeError):
             return current_status
-        if max_entity.state in (STATE_UNKNOWN, STATE_UNAVAILABLE):
-            return current_status
-        min_val = float(min_entity.state)
-        max_val = float(max_entity.state)
         band = (max_val - min_val) * HYSTERESIS_FRACTION
 
         if value < min_val:
