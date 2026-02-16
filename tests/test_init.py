@@ -1742,6 +1742,67 @@ class TestHysteresis:
         await update_plant_sensors(hass, init_integration.entry_id)
         assert plant.conductivity_status == STATE_OK
 
+    async def test_threshold_unavailable_preserves_status(
+        self,
+        hass: HomeAssistant,
+        init_integration: MockConfigEntry,
+    ) -> None:
+        """Test that unavailable threshold entities don't crash _check_threshold.
+
+        When a threshold number entity has state 'unavailable', the plant
+        should keep its current status rather than raising ValueError.
+        """
+        plant = hass.data[DOMAIN][init_integration.entry_id][ATTR_PLANT]
+
+        # First establish a known state
+        await set_external_sensor_states(
+            hass,
+            temperature=25.0,
+            moisture=40.0,
+            conductivity=1000.0,
+            illuminance=5000.0,
+            humidity=40.0,
+        )
+        await update_plant_sensors(hass, init_integration.entry_id)
+        assert plant.state == STATE_OK
+        assert plant.moisture_status == STATE_OK
+
+        # Make the min_moisture threshold entity unavailable
+        hass.states.async_set(plant.min_moisture.entity_id, STATE_UNAVAILABLE)
+        await hass.async_block_till_done()
+
+        # Update should not crash — moisture_status should be preserved
+        await update_plant_sensors(hass, init_integration.entry_id)
+        assert plant.moisture_status == STATE_OK
+
+    async def test_threshold_unknown_preserves_status(
+        self,
+        hass: HomeAssistant,
+        init_integration: MockConfigEntry,
+    ) -> None:
+        """Test that unknown threshold entities don't crash _check_threshold."""
+        plant = hass.data[DOMAIN][init_integration.entry_id][ATTR_PLANT]
+
+        # Establish a LOW moisture state
+        await set_external_sensor_states(
+            hass,
+            temperature=25.0,
+            moisture=5.0,  # Below min of 20
+            conductivity=1000.0,
+            illuminance=5000.0,
+            humidity=40.0,
+        )
+        await update_plant_sensors(hass, init_integration.entry_id)
+        assert plant.moisture_status == STATE_LOW
+
+        # Make the max_moisture threshold entity unknown
+        hass.states.async_set(plant.max_moisture.entity_id, STATE_UNKNOWN)
+        await hass.async_block_till_done()
+
+        # Update should not crash — moisture_status should stay LOW
+        await update_plant_sensors(hass, init_integration.entry_id)
+        assert plant.moisture_status == STATE_LOW
+
 
 class TestYamlImport:
     """Tests for YAML configuration import (async_setup)."""
