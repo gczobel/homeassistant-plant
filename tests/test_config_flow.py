@@ -791,11 +791,13 @@ class TestOptionsFlow:
         hass: HomeAssistant,
         init_integration: MockConfigEntry,
     ) -> None:
-        """Test initializing the options flow."""
+        """Test initializing the options flow shows menu."""
         result = await hass.config_entries.options.async_init(init_integration.entry_id)
 
-        assert result["type"] == FlowResultType.FORM
+        assert result["type"] == FlowResultType.MENU
         assert result["step_id"] == "init"
+        assert "plant_properties" in result["menu_options"]
+        assert "replace_sensor" in result["menu_options"]
 
     async def test_options_flow_update_species(
         self,
@@ -805,6 +807,12 @@ class TestOptionsFlow:
     ) -> None:
         """Test updating species through options flow."""
         result = await hass.config_entries.options.async_init(init_integration.entry_id)
+
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"],
+            {"next_step_id": "plant_properties"},
+        )
+        assert result["step_id"] == "plant_properties"
 
         result = await hass.config_entries.options.async_configure(
             result["flow_id"],
@@ -824,6 +832,12 @@ class TestOptionsFlow:
     ) -> None:
         """Test toggling problem triggers through options flow."""
         result = await hass.config_entries.options.async_init(init_integration.entry_id)
+
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"],
+            {"next_step_id": "plant_properties"},
+        )
+        assert result["step_id"] == "plant_properties"
 
         result = await hass.config_entries.options.async_configure(
             result["flow_id"],
@@ -858,6 +872,10 @@ class TestOptionsFlow:
         result = await hass.config_entries.options.async_init(init_integration.entry_id)
         result = await hass.config_entries.options.async_configure(
             result["flow_id"],
+            {"next_step_id": "plant_properties"},
+        )
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"],
             {
                 ATTR_SPECIES: "updated species",
                 OPB_DISPLAY_PID: new_display_species,
@@ -887,6 +905,10 @@ class TestOptionsFlow:
         result = await hass.config_entries.options.async_init(init_integration.entry_id)
         result = await hass.config_entries.options.async_configure(
             result["flow_id"],
+            {"next_step_id": "plant_properties"},
+        )
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"],
             {
                 ATTR_SPECIES: "test species",
                 OPB_DISPLAY_PID: "Test Species",
@@ -913,6 +935,10 @@ class TestOptionsFlow:
         result = await hass.config_entries.options.async_init(init_integration.entry_id)
         result = await hass.config_entries.options.async_configure(
             result["flow_id"],
+            {"next_step_id": "plant_properties"},
+        )
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"],
             {
                 ATTR_SPECIES: "test species",
                 OPB_DISPLAY_PID: "Test Species",
@@ -925,3 +951,113 @@ class TestOptionsFlow:
 
         # Verify the /local/ path was stored correctly
         assert plant.entity_picture == local_path
+
+    async def test_options_flow_replace_sensor(
+        self,
+        hass: HomeAssistant,
+        init_integration: MockConfigEntry,
+    ) -> None:
+        """Test replacing a sensor through the options flow."""
+        plant = hass.data[DOMAIN][init_integration.entry_id]["plant"]
+
+        # Set up a new sensor entity
+        hass.states.async_set(
+            "sensor.new_temperature",
+            "25",
+            {"unit_of_measurement": "°C", "device_class": "temperature"},
+        )
+
+        result = await hass.config_entries.options.async_init(init_integration.entry_id)
+        assert result["type"] == FlowResultType.MENU
+
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"],
+            {"next_step_id": "replace_sensor"},
+        )
+        assert result["step_id"] == "replace_sensor"
+
+        # Submit with a new temperature sensor
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"],
+            {
+                FLOW_SENSOR_TEMPERATURE: "sensor.new_temperature",
+            },
+        )
+
+        assert result["type"] == FlowResultType.CREATE_ENTRY
+        await hass.async_block_till_done()
+
+        # Verify the sensor was replaced
+        assert plant.sensor_temperature.external_sensor == "sensor.new_temperature"
+
+    async def test_options_flow_replace_sensor_preserves_options(
+        self,
+        hass: HomeAssistant,
+        init_integration: MockConfigEntry,
+    ) -> None:
+        """Test that replace_sensor preserves existing options (triggers etc)."""
+        # First set some trigger options via plant_properties
+        result = await hass.config_entries.options.async_init(init_integration.entry_id)
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"],
+            {"next_step_id": "plant_properties"},
+        )
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"],
+            {
+                "illuminance_trigger": False,
+                "moisture_trigger": False,
+            },
+        )
+        assert result["type"] == FlowResultType.CREATE_ENTRY
+        await hass.async_block_till_done()
+
+        # Verify triggers are set
+        assert init_integration.options.get("illuminance_trigger") is False
+        assert init_integration.options.get("moisture_trigger") is False
+
+        # Now do a replace_sensor flow
+        result = await hass.config_entries.options.async_init(init_integration.entry_id)
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"],
+            {"next_step_id": "replace_sensor"},
+        )
+        # Submit with no changes
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"],
+            {},
+        )
+        assert result["type"] == FlowResultType.CREATE_ENTRY
+        await hass.async_block_till_done()
+
+        # Verify triggers are still preserved
+        assert init_integration.options.get("illuminance_trigger") is False
+        assert init_integration.options.get("moisture_trigger") is False
+
+    async def test_options_flow_replace_sensor_no_change(
+        self,
+        hass: HomeAssistant,
+        init_integration: MockConfigEntry,
+    ) -> None:
+        """Test replace_sensor with same values makes no replacements."""
+        plant = hass.data[DOMAIN][init_integration.entry_id]["plant"]
+        original_sensor = plant.sensor_temperature.external_sensor
+
+        # Navigate to replace_sensor and submit the same sensor value
+        result = await hass.config_entries.options.async_init(init_integration.entry_id)
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"],
+            {"next_step_id": "replace_sensor"},
+        )
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"],
+            {
+                FLOW_SENSOR_TEMPERATURE: original_sensor,
+            },
+        )
+
+        assert result["type"] == FlowResultType.CREATE_ENTRY
+        await hass.async_block_till_done()
+
+        # Sensor should remain the same
+        assert plant.sensor_temperature.external_sensor == original_sensor
