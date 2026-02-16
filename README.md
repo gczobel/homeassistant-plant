@@ -207,9 +207,10 @@ You can replace the physical sensor backing a plant measurement at any time — 
 2. Select **Replace sensors**
 3. Change the sensor entity for any sensor type, or clear a field to remove it
 
-<!-- TODO: screenshot of the options menu showing "Plant properties" and "Replace sensors" -->
+<img width="413" height="257" alt="image" src="https://github.com/user-attachments/assets/3f8cd00e-25aa-4ab2-af15-18eaf3d499a4" />
 
-<!-- TODO: screenshot of the replace_sensor form with entity selectors -->
+<img width="583" height="944" alt="image" src="https://github.com/user-attachments/assets/d18dca7c-18b2-4fe0-ab5f-b9f804376dc9" />
+
 
 ### Using the `plant.replace_sensor` action
 
