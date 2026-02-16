@@ -176,9 +176,9 @@ You can override the image with your own. Supported formats:
 
 By default, any sensor reading outside its configured threshold triggers a **"problem"** state on the plant. You can enable or disable problem triggers per sensor type.
 
-Configure via **Settings** → **Devices & Services** → **Plant Monitor** → *Your Plant* → **Configure**.
+Configure via **Settings** → **Devices & Services** → **Plant Monitor** → *Your Plant* → **Configure** → **Plant properties**.
 
-![Problem trigger options](https://user-images.githubusercontent.com/203184/184301674-0461813a-a665-4e93-b5a8-7c9575fe4782.png)
+<!-- TODO: screenshot of the plant_properties form showing trigger toggles -->
 
 ### Hysteresis
 
@@ -199,7 +199,21 @@ The band scales proportionally with your configured thresholds. No configuration
 
 ## 🔄 Replacing Sensors
 
-Use the `plant.replace_sensor` action to swap the physical sensor backing a plant measurement — no restart needed.
+You can replace the physical sensor backing a plant measurement at any time — no restart needed.
+
+### From the Configuration menu *(recommended)*
+
+1. Go to **Settings** → **Devices & Services** → **Plant Monitor** → *Your Plant* → **Configure**
+2. Select **Replace sensors**
+3. Change the sensor entity for any sensor type, or clear a field to remove it
+
+<!-- TODO: screenshot of the options menu showing "Plant properties" and "Replace sensors" -->
+
+<!-- TODO: screenshot of the replace_sensor form with entity selectors -->
+
+### Using the `plant.replace_sensor` action
+
+You can also use the `plant.replace_sensor` action directly via **Developer Tools** → **Actions**:
 
 ![Replace sensor](https://user-images.githubusercontent.com/203184/183286188-174dc709-173f-42fb-9d66-678d0c1f62e4.png)
 
@@ -210,10 +224,10 @@ data:
   new_sensor: sensor.ble_sensor_12_illumination
 ```
 
+To remove a sensor, call the action with an empty `new_sensor`.
+
 > [!TIP]
 > Use generic entity IDs for physical sensors (e.g. `sensor.ble_sensor_1_moisture`) and descriptive IDs for plant sensors (e.g. `sensor.rose_moisture`). This makes it easy to swap hardware without confusion.
-
-To remove a sensor, call the action with an empty `new_sensor`.
 
 ### Adding a sensor to an existing plant
 
@@ -221,10 +235,10 @@ If you set up a plant without a particular sensor (e.g. you didn't have a CO2 or
 
 1. Go to your plant's device page
 2. Find the disabled sensor entity (e.g. "CO2") and **enable** it
-3. Use the `plant.replace_sensor` action to assign your physical sensor to it
+3. Use **Configure** → **Replace sensors** to assign your physical sensor, or use the `plant.replace_sensor` action
 
 > [!IMPORTANT]
-> You must enable the plant sensor entity **before** using `replace_sensor` — Home Assistant hides disabled entities from the entity picker in the UI, so you won't be able to select it as the `meter_entity` target otherwise.
+> You must enable the plant sensor entity **before** replacing it — Home Assistant hides disabled entities from the entity picker in the UI.
 
 ---
 
@@ -241,9 +255,9 @@ When adding a new plant, the config flow searches OpenPlantbook for the species 
 
 ### Changing Species / Refreshing Data
 
-Go to **Settings** → **Devices & Services** → **Plant Monitor** → *Your Plant* → **Configure**.
+Go to **Settings** → **Devices & Services** → **Plant Monitor** → *Your Plant* → **Configure** → **Plant properties**.
 
-![Options flow](https://user-images.githubusercontent.com/203184/184328930-8be5fc06-1761-4067-a785-7c46c0b73162.png)
+<!-- TODO: screenshot of the options menu showing "Plant properties" and "Replace sensors" -->
 
 - **Change species:** Enter the new species exactly as the `pid` in OpenPlantbook (including punctuation). New thresholds and image are fetched automatically.
 - **Force refresh:** Check this box to re-fetch data from OpenPlantbook without changing the species. Useful for private species not found during initial search. When checked, both the image and display species name are updated.
@@ -277,7 +291,7 @@ For practical tips, template examples, and workarounds — including fixing sens
 <details>
 <summary><strong>I added the wrong sensors — after removing and re-adding the plant, old values still show</strong></summary>
 
-Home Assistant remembers old entity configurations. Instead of removing and re-adding a plant, use the `plant.replace_sensor` action to swap sensors. See [Replacing Sensors](#-replacing-sensors).
+Home Assistant remembers old entity configurations. Instead of removing and re-adding a plant, use **Configure** → **Replace sensors** (or the `plant.replace_sensor` action) to swap sensors. See [Replacing Sensors](#-replacing-sensors).
 </details>
 
 <details>
@@ -287,7 +301,7 @@ The sensor dropdowns filter by `device_class`. Some integrations don't set the c
 
 **Solutions:**
 1. Report the issue to the physical sensor's integration maintainer
-2. Add the plant without that sensor, then use the `plant.replace_sensor` action (its checks are more relaxed)
+2. Add the plant without that sensor, then use the `plant.replace_sensor` action (it doesn't filter by `device_class`)
 3. Create a template sensor with the correct device class:
 
 ```yaml
@@ -319,7 +333,7 @@ You can also use `media-source://` URLs. See [Plant Images](#️-plant-images).
 <details>
 <summary><strong>I removed a sensor but it comes back after restart</strong></summary>
 
-When you remove a sensor using `plant.replace_sensor` (with an empty `new_sensor`), the change is persisted to the configuration. If sensors reappear, update to the latest release.
+When you remove a sensor using **Configure** → **Replace sensors** (or `plant.replace_sensor` with an empty `new_sensor`), the change is persisted to the configuration. If sensors reappear, update to the latest release.
 </details>
 
 ---
