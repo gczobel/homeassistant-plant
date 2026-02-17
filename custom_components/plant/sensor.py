@@ -303,7 +303,25 @@ class PlantCurrentStatus(RestoreSensor):
         self._attr_native_value = None
         if state:
             if "external_sensor" in state.attributes:
+                _LOGGER.debug(
+                    "Restoring %s external sensor from state: %s",
+                    self.entity_id,
+                    state.attributes["external_sensor"],
+                )
                 self.replace_external_sensor(state.attributes["external_sensor"])
+            else:
+                _LOGGER.debug(
+                    "No external_sensor in restored state for %s",
+                    self.entity_id,
+                )
+        else:
+            _LOGGER.debug("No restore data for %s", self.entity_id)
+        _LOGGER.debug(
+            "Sensor %s setup complete: external_sensor=%s, enabled=%s",
+            self.entity_id,
+            self.external_sensor,
+            self.enabled,
+        )
         self.async_track_entity(self.entity_id)
         if self.external_sensor:
             self.async_track_entity(self.external_sensor)
@@ -645,7 +663,7 @@ class PlantCurrentPpfd(PlantCurrentStatus):
         try:
             numeric_value = float(value)
         except (ValueError, TypeError):
-            _LOGGER.warning(
+            _LOGGER.debug(
                 "PPFD source %s has non-numeric value: %s",
                 self.external_sensor,
                 value,
@@ -667,7 +685,7 @@ class PlantCurrentPpfd(PlantCurrentStatus):
             try:
                 lux_to_ppfd = float(self._plant.lux_to_ppfd.native_value)
             except (ValueError, TypeError):
-                _LOGGER.warning(
+                _LOGGER.debug(
                     "Lux-to-PPFD factor has non-numeric value: %s, using default %s",
                     self._plant.lux_to_ppfd.native_value,
                     DEFAULT_LUX_TO_PPFD,
