@@ -26,6 +26,7 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant, ServiceCall, callback
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import discovery
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity import Entity, async_generate_entity_id
@@ -48,6 +49,7 @@ from .const import (
     ATTR_MOISTURE,
     ATTR_NEW_SENSOR,
     ATTR_PLANT,
+    ATTR_PROBLEMS,
     ATTR_SENSOR,
     ATTR_SENSORS,
     ATTR_SOIL_TEMPERATURE,
@@ -164,6 +166,18 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     This function handles importing plants from the native Home Assistant
     plant integration's YAML configuration format.
     """
+    hass.data.setdefault(DOMAIN, {})
+
+    # Register the global problem binary sensor at domain level (like the
+    # ws_get_info websocket API) rather than per-entry, since this is a single
+    # global sensor not tied to any specific plant.
+    if "global_problem_sensor" not in hass.data[DOMAIN]:
+        hass.async_create_task(
+            discovery.async_load_platform(
+                hass, Platform.BINARY_SENSOR, DOMAIN, {}, config
+            )
+        )
+
     if config.get(DOMAIN):
         # Only import if we haven't already imported
         config_entry = _async_find_matching_config_entry(hass)
@@ -226,8 +240,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         new_sensor = call.data.get(ATTR_NEW_SENSOR)
         found = False
         for entry_id in hass.data[DOMAIN]:
-            # Skip internal settings keys
-            if entry_id.startswith("_") or entry_id.endswith("_store"):
+            # Skip internal/non-entry keys
+            if not isinstance(hass.data[DOMAIN][entry_id], dict):
                 continue
             if ATTR_SENSORS in hass.data[DOMAIN][entry_id]:
                 for sensor in hass.data[DOMAIN][entry_id][ATTR_SENSORS]:
@@ -274,8 +288,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             new_sensor,
         )
         for key in hass.data[DOMAIN]:
-            # Skip internal settings keys
-            if key.startswith("_") or key.endswith("_store"):
+            # Skip internal/non-entry keys
+            if not isinstance(hass.data[DOMAIN][key], dict):
                 continue
             if ATTR_SENSORS in hass.data[DOMAIN][key]:
                 meters = hass.data[DOMAIN][key][ATTR_SENSORS]
@@ -457,8 +471,8 @@ def ws_get_info(
         return
 
     for key in hass.data[DOMAIN]:
-        # Skip internal settings keys
-        if key.startswith("_") or key.endswith("_store"):
+        # Skip internal/non-entry keys
+        if not isinstance(hass.data[DOMAIN][key], dict):
             continue
         if ATTR_PLANT not in hass.data[DOMAIN][key]:
             continue
@@ -524,6 +538,7 @@ class PlantDevice(Entity):
 
         self.plant_complete = False
         self._device_id = None
+        self._problems = []
 
         self._check_days = None
 
@@ -665,6 +680,7 @@ class PlantDevice(Entity):
             f"{ATTR_SOIL_TEMPERATURE}_status": self.soil_temperature_status,
             f"{ATTR_DLI}_status": self.dli_status,
             f"{ATTR_SPECIES}_original": self.species,
+            ATTR_PROBLEMS: self._problems,
         }
         return attributes
 
@@ -1061,6 +1077,7 @@ class PlantDevice(Entity):
 
         new_state = STATE_OK
         known_state = False
+        problems = []
 
         if self.sensor_moisture is not None:
             moisture = getattr(
@@ -1080,6 +1097,15 @@ class PlantDevice(Entity):
                     and self.moisture_trigger
                 ):
                     new_state = STATE_PROBLEM
+                    problems.append(
+                        {
+                            "sensor_type": ATTR_MOISTURE,
+                            "status": self.moisture_status,
+                            "current": str(moisture_val),
+                            "min": self.min_moisture.state,
+                            "max": self.max_moisture.state,
+                        }
+                    )
             else:
                 # Reset status when sensor is unavailable or non-numeric
                 self.moisture_status = None
@@ -1107,6 +1133,15 @@ class PlantDevice(Entity):
                     and self.conductivity_trigger
                 ):
                     new_state = STATE_PROBLEM
+                    problems.append(
+                        {
+                            "sensor_type": ATTR_CONDUCTIVITY,
+                            "status": self.conductivity_status,
+                            "current": str(conductivity_val),
+                            "min": self.min_conductivity.state,
+                            "max": self.max_conductivity.state,
+                        }
+                    )
             else:
                 # Reset status when sensor is unavailable or non-numeric
                 self.conductivity_status = None
@@ -1134,6 +1169,15 @@ class PlantDevice(Entity):
                     and self.temperature_trigger
                 ):
                     new_state = STATE_PROBLEM
+                    problems.append(
+                        {
+                            "sensor_type": ATTR_TEMPERATURE,
+                            "status": self.temperature_status,
+                            "current": str(temperature_val),
+                            "min": self.min_temperature.state,
+                            "max": self.max_temperature.state,
+                        }
+                    )
             else:
                 # Reset status when sensor is unavailable or non-numeric
                 self.temperature_status = None
@@ -1159,6 +1203,15 @@ class PlantDevice(Entity):
                     and self.humidity_trigger
                 ):
                     new_state = STATE_PROBLEM
+                    problems.append(
+                        {
+                            "sensor_type": ATTR_HUMIDITY,
+                            "status": self.humidity_status,
+                            "current": str(humidity_val),
+                            "min": self.min_humidity.state,
+                            "max": self.max_humidity.state,
+                        }
+                    )
             else:
                 # Reset status when sensor is unavailable or non-numeric
                 self.humidity_status = None
@@ -1178,6 +1231,15 @@ class PlantDevice(Entity):
                 )
                 if self.co2_status in (STATE_LOW, STATE_HIGH) and self.co2_trigger:
                     new_state = STATE_PROBLEM
+                    problems.append(
+                        {
+                            "sensor_type": ATTR_CO2,
+                            "status": self.co2_status,
+                            "current": str(co2_val),
+                            "min": self.min_co2.state,
+                            "max": self.max_co2.state,
+                        }
+                    )
             else:
                 # Reset status when sensor is unavailable or non-numeric
                 self.co2_status = None
@@ -1207,6 +1269,15 @@ class PlantDevice(Entity):
                     and self.soil_temperature_trigger
                 ):
                     new_state = STATE_PROBLEM
+                    problems.append(
+                        {
+                            "sensor_type": ATTR_SOIL_TEMPERATURE,
+                            "status": self.soil_temperature_status,
+                            "current": str(soil_temp_val),
+                            "min": self.min_soil_temperature.state,
+                            "max": self.max_soil_temperature.state,
+                        }
+                    )
             else:
                 # Reset status when sensor is unavailable or non-numeric
                 self.soil_temperature_status = None
@@ -1245,6 +1316,15 @@ class PlantDevice(Entity):
                         and self.illuminance_trigger
                     ):
                         new_state = STATE_PROBLEM
+                        problems.append(
+                            {
+                                "sensor_type": ATTR_ILLUMINANCE,
+                                "status": self.illuminance_status,
+                                "current": str(illuminance_val),
+                                "min": self.min_illuminance.state,
+                                "max": self.max_illuminance.state,
+                            }
+                        )
                 else:
                     # Reset status when sensor is unavailable or non-numeric
                     self.illuminance_status = None
@@ -1277,9 +1357,20 @@ class PlantDevice(Entity):
                 self.dli_status = STATE_OK
             if self.dli_status in (STATE_LOW, STATE_HIGH) and self.dli_trigger:
                 new_state = STATE_PROBLEM
+                problems.append(
+                    {
+                        "sensor_type": ATTR_DLI,
+                        "status": self.dli_status,
+                        "current": str(dli_value),
+                        "min": self.min_dli.state,
+                        "max": self.max_dli.state,
+                    }
+                )
         else:
             # Reset DLI status when sensor is unavailable or removed
             self.dli_status = None
+
+        self._problems = problems
 
         if not known_state:
             new_state = STATE_UNKNOWN

@@ -1,6 +1,11 @@
 {
   "title": "Plant monitor",
   "entity": {
+    "binary_sensor": {
+      "plant_problems": {
+        "name": "Plant problems"
+      }
+    },
     "sensor": {
       "moisture": {
         "name": "Soil moisture"
