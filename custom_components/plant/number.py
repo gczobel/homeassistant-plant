@@ -275,7 +275,18 @@ class PlantMinMax(RestoreNumber):
         await super().async_added_to_hass()
         state = await self.async_get_last_number_data()
         if not state:
+            _LOGGER.debug(
+                "No restore data for %s, keeping default %s",
+                self.entity_id,
+                self._default_value,
+            )
             return
+        _LOGGER.debug(
+            "Restoring %s: native_value=%r, unit=%s",
+            self.entity_id,
+            state.native_value,
+            state.native_unit_of_measurement,
+        )
         if state.native_value is not None:
             try:
                 float(state.native_value)
@@ -394,7 +405,7 @@ class PlantMaxTemperature(PlantMinMax):
         try:
             current_value = float(self.state)
         except (ValueError, TypeError):
-            _LOGGER.warning(
+            _LOGGER.debug(
                 "Cannot convert temperature for %s: state is %s",
                 self.entity_id,
                 self.state,
@@ -477,7 +488,7 @@ class PlantMinTemperature(PlantMinMax):
         try:
             current_value = float(self.state)
         except (ValueError, TypeError):
-            _LOGGER.warning(
+            _LOGGER.debug(
                 "Cannot convert temperature for %s: state is %s",
                 self.entity_id,
                 self.state,
@@ -790,7 +801,7 @@ class PlantMaxSoilTemperature(PlantMinMax):
         try:
             current_value = float(self.state)
         except (ValueError, TypeError):
-            _LOGGER.warning(
+            _LOGGER.debug(
                 "Cannot convert temperature for %s: state is %s",
                 self.entity_id,
                 self.state,
@@ -866,7 +877,7 @@ class PlantMinSoilTemperature(PlantMinMax):
         try:
             current_value = float(self.state)
         except (ValueError, TypeError):
-            _LOGGER.warning(
+            _LOGGER.debug(
                 "Cannot convert temperature for %s: state is %s",
                 self.entity_id,
                 self.state,

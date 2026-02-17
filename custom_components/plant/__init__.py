@@ -1007,7 +1007,7 @@ class PlantDevice(Entity):
         try:
             return float(value)
         except (ValueError, TypeError):
-            _LOGGER.warning("Sensor %s has non-numeric value: %s", entity_id, value)
+            _LOGGER.debug("Sensor %s has non-numeric value: %s", entity_id, value)
             return None
 
     def _check_threshold(self, value, min_entity, max_entity, current_status):
@@ -1033,14 +1033,28 @@ class PlantDevice(Entity):
         band = (max_val - min_val) * HYSTERESIS_FRACTION
 
         if value < min_val:
-            return STATE_LOW
-        if value > max_val:
-            return STATE_HIGH
-        if current_status == STATE_LOW and value <= min_val + band:
-            return STATE_LOW
-        if current_status == STATE_HIGH and value >= max_val - band:
-            return STATE_HIGH
-        return STATE_OK
+            new_status = STATE_LOW
+        elif value > max_val:
+            new_status = STATE_HIGH
+        elif current_status == STATE_LOW and value <= min_val + band:
+            new_status = STATE_LOW
+        elif current_status == STATE_HIGH and value >= max_val - band:
+            new_status = STATE_HIGH
+        else:
+            new_status = STATE_OK
+
+        if new_status != current_status:
+            _LOGGER.debug(
+                "Threshold %s/%s: value=%.1f, range=[%.1f, %.1f], " "status %s -> %s",
+                min_entity.entity_id,
+                max_entity.entity_id,
+                value,
+                min_val,
+                max_val,
+                current_status,
+                new_status,
+            )
+        return new_status
 
     def update(self) -> None:
         """Run on every update of the entities"""
@@ -1250,7 +1264,7 @@ class PlantDevice(Entity):
             try:
                 dli_value = float(self.dli.extra_state_attributes.get("last_period", 0))
             except (ValueError, TypeError):
-                _LOGGER.warning(
+                _LOGGER.debug(
                     "DLI last_period has non-numeric value: %s",
                     self.dli.extra_state_attributes.get("last_period"),
                 )
@@ -1270,6 +1284,13 @@ class PlantDevice(Entity):
         if not known_state:
             new_state = STATE_UNKNOWN
 
+        if new_state != self._attr_state:
+            _LOGGER.debug(
+                "Plant %s state changed: %s -> %s",
+                self.entity_id,
+                self._attr_state,
+                new_state,
+            )
         self._attr_state = new_state
         self.update_registry()
 
