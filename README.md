@@ -195,6 +195,61 @@ The band scales proportionally with your configured thresholds. No configuration
 > [!NOTE]
 > When a sensor becomes unavailable, the hysteresis state resets. The next valid reading is evaluated fresh against the thresholds.
 
+### Problem Details Attribute
+
+Each plant entity exposes a `problems` attribute — a structured list of all active problems. When the plant is healthy, this is an empty list `[]`.
+
+```yaml
+plant.my_rose:
+  state: "problem"
+  attributes:
+    problems:
+      - sensor_type: moisture
+        status: "Low"
+        current: "15.3"
+        min: "20"
+        max: "60"
+      - sensor_type: dli
+        status: "Low"
+        current: "3.2"
+        min: "5"
+        max: "30"
+```
+
+Each entry includes the sensor type, whether it's too low or too high, the current reading, and the configured thresholds. This is useful in automations and templates — for example, to send a notification listing exactly what's wrong.
+
+### Global Problem Sensor
+
+A `binary_sensor.plant_problems` entity is automatically created when the integration is installed. It turns **on** when any plant has problems and **off** when all plants are healthy.
+
+Its attributes provide a summary across all plants:
+
+| Attribute | Description |
+|-----------|-------------|
+| `plants_with_problems` | List of plants with problems (entity ID + count) |
+| `total_problems` | Total number of problems across all plants |
+| `total_plants` | Total number of monitored plants |
+
+**Example automation** — notify when any plant has a problem:
+
+```yaml
+automation:
+  - alias: "Notify plant problems"
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.plant_problems
+        to: "on"
+    action:
+      - service: notify.mobile_app
+        data:
+          title: "Plant alert"
+          message: >
+            {{ state_attr('binary_sensor.plant_problems', 'total_problems') }}
+            problem(s) across
+            {{ state_attr('binary_sensor.plant_problems', 'plants_with_problems') | length }}
+            plant(s)
+```
+
 ---
 
 ## 🔄 Replacing Sensors
