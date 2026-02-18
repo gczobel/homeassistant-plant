@@ -155,3 +155,7 @@ async def update_plant_sensors(hass: HomeAssistant, entry_id: str) -> None:
 
     # Update the plant state calculation
     plant.update()
+    # Publish the plant state to HA's state machine so event listeners (like the
+    # global problem binary sensor) can react to state changes
+    plant.async_write_ha_state()
+    await hass.async_block_till_done()
