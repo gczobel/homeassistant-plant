@@ -14,6 +14,7 @@ from homeassistant.components.binary_sensor import (
 )
 from homeassistant.const import STATE_PROBLEM
 from homeassistant.core import Event, HomeAssistant, callback
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
@@ -92,6 +93,7 @@ class PlantMonitorProblemSensor(BinarySensorEntity):
         plants_with_problems = []
         total_problems = 0
         total_plants = 0
+        entity_reg = er.async_get(self.hass)
 
         for entry_data in self.hass.data.get(DOMAIN, {}).values():
             if not isinstance(entry_data, dict):
@@ -103,10 +105,16 @@ class PlantMonitorProblemSensor(BinarySensorEntity):
             plant_problems = getattr(plant, "_problems", [])
             if plant_problems:
                 problem_count = len(plant_problems)
+                # Get device_id from entity registry
+                registry_entry = entity_reg.async_get(plant.entity_id)
+                device_id = registry_entry.device_id if registry_entry else None
+
                 plants_with_problems.append(
                     {
                         "entity_id": plant.entity_id,
+                        "friendly_name": plant.name,
                         "problem_count": problem_count,
+                        "device_id": device_id,
                     }
                 )
                 total_problems += problem_count
