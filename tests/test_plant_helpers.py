@@ -326,6 +326,30 @@ class TestPlantHelperGenerateConfigentry:
         # expected_min_dli = round(1500 * 0.0036) = 5
         assert limits[CONF_MIN_DLI] == 5
 
+    async def test_generate_configentry_dli_from_opb_precomputed(
+        self,
+        hass: HomeAssistant,
+        mock_openplantbook_with_dli,
+    ) -> None:
+        """Test that pre-computed DLI from openplantbook is used when available."""
+        helper = PlantHelper(hass)
+        config = {
+            ATTR_NAME: "My Pepper",
+            ATTR_SPECIES: "capsicum annuum",
+            ATTR_SENSORS: {},
+        }
+
+        result = await helper.generate_configentry(config)
+
+        limits = result[FLOW_PLANT_INFO][ATTR_LIMITS]
+
+        # Should use pre-computed DLI values from openplantbook (rounded)
+        # max_dli = 43.2 → round = 43
+        assert limits[CONF_MAX_DLI] == 43
+
+        # min_dli = 12.6 → round = 13
+        assert limits[CONF_MIN_DLI] == 13
+
 
 class TestPlantHelperEdgeCases:
     """Tests for edge cases in PlantHelper."""

@@ -57,6 +57,7 @@ from custom_components.plant.const import (
 
 from .fixtures.openplantbook_responses import (
     GET_RESULT_MONSTERA_DELICIOSA,
+    GET_RESULT_WITH_DLI,
     SEARCH_RESULT_MONSTERA,
 )
 
@@ -252,6 +253,54 @@ def mock_openplantbook_services() -> Generator[MagicMock, None, None]:
 
     async def mock_validate_image_url(self, url):
         """Mock image URL validation - always return True for test URLs."""
+        return url is not None and url != ""
+
+    with patch(
+        "homeassistant.core.ServiceRegistry.async_services",
+        return_value={DOMAIN_PLANTBOOK: {"search": None, "get": None}},
+    ):
+        with patch(
+            "homeassistant.core.ServiceRegistry.async_call",
+            side_effect=mock_service_call,
+        ):
+            with patch(
+                "custom_components.plant.plant_helpers.PlantHelper.validate_image_url",
+                mock_validate_image_url,
+            ):
+                yield
+
+
+@pytest.fixture
+def mock_openplantbook_with_dli() -> Generator[MagicMock, None, None]:
+    """Mock OpenPlantbook services returning pre-computed DLI values."""
+
+    async def mock_search(domain, service, service_data, blocking, return_response):
+        alias = service_data.get("alias", "").lower()
+        if "capsicum" in alias:
+            return {"capsicum annuum": "Capsicum annuum"}
+        return {}
+
+    async def mock_get(domain, service, service_data, blocking, return_response):
+        species = service_data.get("species", "").lower()
+        if species == "capsicum annuum":
+            return GET_RESULT_WITH_DLI
+        return None
+
+    async def mock_service_call(
+        domain, service, service_data=None, blocking=False, return_response=False
+    ):
+        if domain == DOMAIN_PLANTBOOK:
+            if service == "search":
+                return await mock_search(
+                    domain, service, service_data, blocking, return_response
+                )
+            elif service == "get":
+                return await mock_get(
+                    domain, service, service_data, blocking, return_response
+                )
+        return None
+
+    async def mock_validate_image_url(self, url):
         return url is not None and url != ""
 
     with patch(
