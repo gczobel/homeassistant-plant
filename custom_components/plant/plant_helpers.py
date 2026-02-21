@@ -356,7 +356,7 @@ class PlantHelper:
             )
             # Prefer pre-computed DLI from openplantbook integration (includes
             # ratio-based detection). Fall back to mmol × PPFD_DLI_FACTOR.
-            opb_max_dli = opb_plant.get("max_dli")
+            opb_max_dli = opb_plant.get(CONF_PLANTBOOK_MAPPING[CONF_MAX_DLI])
             if opb_max_dli is not None:
                 max_dli = round(float(opb_max_dli))
             else:
@@ -365,7 +365,7 @@ class PlantHelper:
                     max_dli = round(float(opb_mmol) * PPFD_DLI_FACTOR)
                 else:
                     max_dli = DEFAULT_MAX_DLI
-            opb_min_dli = opb_plant.get("min_dli")
+            opb_min_dli = opb_plant.get(CONF_PLANTBOOK_MAPPING[CONF_MIN_DLI])
             if opb_min_dli is not None:
                 min_dli = round(float(opb_min_dli))
             else:
