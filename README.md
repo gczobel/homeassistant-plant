@@ -195,9 +195,21 @@ The band scales proportionally with your configured thresholds. No configuration
 > [!NOTE]
 > When a sensor becomes unavailable, the hysteresis state resets. The next valid reading is evaluated fresh against the thresholds.
 
+### Plant State
+
+Each plant entity (`plant.my_rose`, etc.) reports an overall **state** based on its sensor readings:
+
+| State | Meaning |
+|-------|---------|
+| `ok` | All sensors are within their configured thresholds |
+| `problem` | One or more sensors are out of range (with their trigger enabled) |
+| `unknown` | No sensor data is available yet |
+
+The `problems` attribute below extends this with structured details about *what* is wrong.
+
 ### Problem Details Attribute
 
-Each plant entity exposes a `problems` attribute — a structured list of all active problems. When the plant is healthy, this is an empty list `[]`.
+Each plant entity also exposes a `problems` attribute — a structured list of all active problems. When the plant is healthy, this is an empty list `[]`.
 
 ```yaml
 plant.my_rose:

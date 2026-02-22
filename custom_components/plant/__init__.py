@@ -63,6 +63,7 @@ from .const import (
     CONF_MIN_CONDUCTIVITY,
     CONF_MIN_MOISTURE,
     CONF_MIN_TEMPERATURE,
+    DATA_GLOBAL_PROBLEM_SENSOR,
     DATA_SOURCE,
     DOMAIN,
     DOMAIN_PLANTBOOK,
@@ -171,7 +172,16 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     # Register the global problem binary sensor at domain level (like the
     # ws_get_info websocket API) rather than per-entry, since this is a single
     # global sensor not tied to any specific plant.
-    if "global_problem_sensor" not in hass.data[DOMAIN]:
+    #
+    # Uses discovery.async_load_platform, the standard HA pattern for
+    # domain-level entities not owned by any config entry (same approach as
+    # the core Energy integration and Adaptive Lighting).
+    #
+    # Guard prevents double-registration if async_setup is called again.
+    # Note: entities loaded via discovery do not support unloading — the
+    # binary sensor persists until HA restarts even if all plant entries
+    # are removed. This is an inherent limitation of the pattern.
+    if DATA_GLOBAL_PROBLEM_SENSOR not in hass.data[DOMAIN]:
         hass.async_create_task(
             discovery.async_load_platform(
                 hass, Platform.BINARY_SENSOR, DOMAIN, {}, config
@@ -225,6 +235,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Add the entities to device registry and tie to config entry
     device_id = plant.device_id
     await _plant_add_to_device_registry(hass, plant_entities, device_id, entry)
+
+    # Notify the global problem sensor so it tracks this new plant entity.
+    # Plants added after initial setup would otherwise not trigger updates.
+    global_sensor = hass.data[DOMAIN].get(DATA_GLOBAL_PROBLEM_SENSOR)
+    if global_sensor is not None:
+        global_sensor._refresh_tracked_plants()
 
     # Set up utility sensor
     hass.data.setdefault(DATA_UTILITY, {})
@@ -407,21 +423,23 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.data[DATA_UTILITY].pop(entry.entry_id, None)
         _LOGGER.debug("Remaining domain data: %s", list(hass.data[DOMAIN].keys()))
 
-        # Check for empty plant entries (skip settings keys)
+        # Check for empty plant entries
         for entry_id in list(hass.data[DOMAIN].keys()):
-            # Skip internal settings keys
-            if entry_id.startswith("_") or entry_id.endswith("_store"):
+            # Skip internal/non-entry keys
+            if not isinstance(hass.data[DOMAIN][entry_id], dict):
                 continue
-            if isinstance(hass.data[DOMAIN][entry_id], dict):
-                if len(hass.data[DOMAIN][entry_id]) == 0:
-                    _LOGGER.debug("Removing empty entry %s", entry_id)
-                    del hass.data[DOMAIN][entry_id]
+            if len(hass.data[DOMAIN][entry_id]) == 0:
+                _LOGGER.debug("Removing empty entry %s", entry_id)
+                del hass.data[DOMAIN][entry_id]
 
-        # Check if only settings keys remain (no actual plant entries)
+        # Refresh the global problem sensor so it stops tracking the removed plant
+        global_sensor = hass.data[DOMAIN].get(DATA_GLOBAL_PROBLEM_SENSOR)
+        if global_sensor is not None:
+            global_sensor._refresh_tracked_plants()
+
+        # Check if only non-entry keys remain (no actual plant entries)
         remaining_plant_entries = [
-            k
-            for k in hass.data[DOMAIN].keys()
-            if not k.startswith("_") and not k.endswith("_store")
+            k for k in hass.data[DOMAIN] if isinstance(hass.data[DOMAIN][k], dict)
         ]
         if len(remaining_plant_entries) == 0:
             _LOGGER.debug("Removing domain %s (no more plants)", DOMAIN)

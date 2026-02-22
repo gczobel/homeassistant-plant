@@ -131,6 +131,9 @@ DATA_SOURCE_PLANTBOOK = "OpenPlantbook"
 DATA_SOURCE_MANUAL = "Manual"
 DATA_SOURCE_DEFAULT = "Default values"
 DATA_UPDATED = "plant_data_updated"
+# Key in hass.data[DOMAIN] for the global problem binary sensor reference.
+# Kept alongside per-entry data; isinstance() guards skip it during iteration.
+DATA_GLOBAL_PROBLEM_SENSOR = "global_problem_sensor"
 
 
 UNIT_PPFD = "mol/s⋅m²"

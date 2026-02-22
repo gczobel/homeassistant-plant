@@ -338,12 +338,14 @@ Only includes sensors that are available (have valid states).
 
 A single `binary_sensor.plant_problems` entity that reports whether **any** plant has problems.
 
-- **Registration:** Domain-level via `discovery.async_load_platform` in `async_setup` (mirrors how `ws_get_info` websocket API is registered at domain level rather than per-entry)
+- **Registration:** Domain-level via `discovery.async_load_platform` in `async_setup` (same pattern as the core Energy integration and Adaptive Lighting for entities not owned by any config entry)
 - **State:** `on` when any plant has `STATE_PROBLEM`, `off` otherwise
-- **Update trigger:** Listens for state changes on plant entities via `async_track_state_change_event`
+- **Update trigger:** Listens for state changes on plant entities via `async_track_state_change_event`. The listener is rebuilt dynamically (`_refresh_tracked_plants`) whenever a plant is added or removed, so plants created after startup are also tracked.
 - **Attributes:** `plants_with_problems` (list), `total_problems`, `total_plants`
 
-The sensor reference is stored at `hass.data[DOMAIN]["global_problem_sensor"]`. All iterations over `hass.data[DOMAIN]` use `isinstance(entry_data, dict)` checks to skip this non-entry key.
+The sensor reference is stored at `hass.data[DOMAIN][DATA_GLOBAL_PROBLEM_SENSOR]`. All iterations over `hass.data[DOMAIN]` use `isinstance(entry_data, dict)` checks to skip this non-entry key.
+
+**Unloading caveat:** Entities loaded via `discovery.async_load_platform` do not support unloading — the binary sensor persists until HA restarts even if all plant config entries are removed. This is an inherent limitation of domain-level entities, shared by the core Energy integration.
 
 ---
 
