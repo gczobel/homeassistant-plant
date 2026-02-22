@@ -54,6 +54,28 @@ GET_RESULT_FICUS_LYRATA = {
     "image_url": "https://opb-img.plantbook.io/ficus_lyrata.jpg",
 }
 
+# Get result with pre-computed DLI from openplantbook integration
+GET_RESULT_WITH_DLI = {
+    "pid": "capsicum annuum",
+    "display_pid": "Capsicum annuum",
+    "alias": "Pepper",
+    "max_light_mmol": 12000,
+    "min_light_mmol": 3500,
+    "max_light_lux": 95000,
+    "min_light_lux": 6000,
+    "max_dli": 43.2,
+    "min_dli": 12.6,
+    "max_temp": 35,
+    "min_temp": 10,
+    "max_env_humid": 80,
+    "min_env_humid": 40,
+    "max_soil_moist": 65,
+    "min_soil_moist": 20,
+    "max_soil_ec": 2500,
+    "min_soil_ec": 350,
+    "image_url": "https://opb-img.plantbook.io/capsicum_annuum.jpg",
+}
+
 # Empty search result
 SEARCH_RESULT_EMPTY = {}
 
