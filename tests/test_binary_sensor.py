@@ -7,7 +7,8 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.plant.const import ATTR_PLANT, DOMAIN
+from custom_components.plant.binary_sensor import PlantMonitorProblemSensor
+from custom_components.plant.const import ATTR_PLANT, DATA_GLOBAL_PROBLEM_SENSOR, DOMAIN
 
 from .common import set_external_sensor_states, update_plant_sensors
 
@@ -21,8 +22,12 @@ class TestGlobalProblemSensor:
         init_integration: MockConfigEntry,
     ) -> None:
         """Test that the global problem sensor is created during setup."""
-        # Check that the sensor exists in hass.data
-        assert "global_problem_sensor" in hass.data[DOMAIN]
+        # Check that the sensor exists in hass.data via the constant key
+        assert DATA_GLOBAL_PROBLEM_SENSOR in hass.data[DOMAIN]
+        assert isinstance(
+            hass.data[DOMAIN][DATA_GLOBAL_PROBLEM_SENSOR],
+            PlantMonitorProblemSensor,
+        )
 
         # Check that the entity exists
         state = hass.states.get("binary_sensor.plant_problems")
@@ -76,6 +81,35 @@ class TestGlobalProblemSensor:
         # Verify global sensor is on
         state = hass.states.get("binary_sensor.plant_problems")
         assert state.state == STATE_ON
+
+    async def test_sensor_recovers_to_off(
+        self,
+        hass: HomeAssistant,
+        init_integration: MockConfigEntry,
+    ) -> None:
+        """Test global sensor returns to off after plant recovers from problem."""
+        # First cause a problem
+        await set_external_sensor_states(
+            hass,
+            moisture=10,  # Too low
+            temperature=22,
+            conductivity=1000,
+            illuminance=5000,
+        )
+        await update_plant_sensors(hass, init_integration.entry_id)
+        await hass.async_block_till_done()
+
+        state = hass.states.get("binary_sensor.plant_problems")
+        assert state.state == STATE_ON
+
+        # Now fix the problem (value must clear hysteresis band: min=20, band=2.0)
+        await set_external_sensor_states(hass, moisture=50)
+        await update_plant_sensors(hass, init_integration.entry_id)
+        await hass.async_block_till_done()
+
+        state = hass.states.get("binary_sensor.plant_problems")
+        assert state.state == STATE_OFF
+        assert state.attributes["total_problems"] == 0
 
     async def test_attributes_include_friendly_name_and_device_id(
         self,
@@ -167,3 +201,59 @@ class TestGlobalProblemSensor:
         state = hass.states.get("binary_sensor.plant_problems")
         assert state.attributes["total_problems"] == 2
         assert state.attributes["total_plants"] == 1
+
+
+class TestDynamicPlantTracking:
+    """Tests for _refresh_tracked_plants — tracking plants added/removed after startup.
+
+    The global sensor registers state-change listeners for all plant entities.
+    Without dynamic refresh, plants added after the sensor's initial setup
+    would not trigger updates. These tests verify the refresh mechanism.
+    """
+
+    async def test_initial_plant_is_tracked(
+        self,
+        hass: HomeAssistant,
+        init_integration: MockConfigEntry,
+    ) -> None:
+        """Test that a plant present at startup is tracked by the global sensor."""
+        global_sensor = hass.data[DOMAIN][DATA_GLOBAL_PROBLEM_SENSOR]
+        plant = hass.data[DOMAIN][init_integration.entry_id][ATTR_PLANT]
+
+        assert plant.entity_id in global_sensor._tracked_entity_ids
+
+    async def test_refresh_is_noop_when_unchanged(
+        self,
+        hass: HomeAssistant,
+        init_integration: MockConfigEntry,
+    ) -> None:
+        """Test that _refresh_tracked_plants does nothing when plant set is unchanged."""
+        global_sensor = hass.data[DOMAIN][DATA_GLOBAL_PROBLEM_SENSOR]
+        old_listener = global_sensor._remove_listener
+
+        # Call refresh again — should be a no-op
+        global_sensor._refresh_tracked_plants()
+
+        assert global_sensor._remove_listener is old_listener
+
+    async def test_removed_plant_is_untracked(
+        self,
+        hass: HomeAssistant,
+        init_integration: MockConfigEntry,
+    ) -> None:
+        """Test that removing a plant updates the tracked set."""
+        global_sensor = hass.data[DOMAIN][DATA_GLOBAL_PROBLEM_SENSOR]
+        plant = hass.data[DOMAIN][init_integration.entry_id][ATTR_PLANT]
+
+        assert plant.entity_id in global_sensor._tracked_entity_ids
+
+        # Simulate removing the plant entry from hass.data and refreshing
+        # (mimics what async_unload_entry does before calling _refresh)
+        saved_entry_data = hass.data[DOMAIN].pop(init_integration.entry_id, None)
+        global_sensor._refresh_tracked_plants()
+
+        assert global_sensor._tracked_entity_ids == set()
+        assert global_sensor._remove_listener is None
+
+        # Restore so the init_integration fixture teardown can unload cleanly
+        hass.data[DOMAIN][init_integration.entry_id] = saved_entry_data
