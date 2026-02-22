@@ -2,6 +2,11 @@
 
 Registered at domain level (like the ws_get_info websocket API) rather than
 per-entry, since this is a single global sensor not tied to any specific plant.
+
+Uses discovery.async_load_platform (same pattern as the core Energy integration
+and Adaptive Lighting). This means the sensor does NOT support unloading — it
+persists until HA restarts even if all plant config entries are removed. This is
+an inherent limitation of domain-level entities not owned by a config entry.
 """
 
 from __future__ import annotations
@@ -19,7 +24,12 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.typing import ConfigType, DiscoveryInfoType
 
-from .const import ATTR_PLANT, ATTR_PLANTS_WITH_PROBLEMS, DOMAIN
+from .const import (
+    ATTR_PLANT,
+    ATTR_PLANTS_WITH_PROBLEMS,
+    DATA_GLOBAL_PROBLEM_SENSOR,
+    DOMAIN,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -36,7 +46,7 @@ async def async_setup_platform(
     sensor = PlantMonitorProblemSensor(hass)
     async_add_entities([sensor])
     hass.data.setdefault(DOMAIN, {})
-    hass.data[DOMAIN]["global_problem_sensor"] = sensor
+    hass.data[DOMAIN][DATA_GLOBAL_PROBLEM_SENSOR] = sensor
 
 
 class PlantMonitorProblemSensor(BinarySensorEntity):
@@ -51,27 +61,49 @@ class PlantMonitorProblemSensor(BinarySensorEntity):
     def __init__(self, hass: HomeAssistant) -> None:
         """Initialize the global problem sensor."""
         self.hass = hass
+        self._tracked_entity_ids: set[str] = set()
+        self._remove_listener: callable | None = None
 
     async def async_added_to_hass(self) -> None:
         """Register state change listener when added to hass."""
+        self._refresh_tracked_plants()
+
+    @callback
+    def _refresh_tracked_plants(self) -> None:
+        """Rebuild the state-change listener to track all current plants.
+
+        Called on startup and whenever a new plant is registered, so that
+        plants added after initial setup are also tracked. Without this,
+        only plants that existed when the sensor was first loaded would
+        trigger updates.
+        """
+        current_ids = {
+            entry_data[ATTR_PLANT].entity_id
+            for entry_data in self.hass.data.get(DOMAIN, {}).values()
+            if isinstance(entry_data, dict) and ATTR_PLANT in entry_data
+        }
+
+        if current_ids == self._tracked_entity_ids:
+            return
+
+        # Tear down old listener before creating a new one
+        if self._remove_listener is not None:
+            self._remove_listener()
+
+        self._tracked_entity_ids = current_ids
 
         @callback
         def _plant_state_changed(event: Event) -> None:
             """Handle plant state changes."""
-            if event.data.get("entity_id", "").startswith("plant."):
-                self.async_write_ha_state()
+            self.async_write_ha_state()
 
-        self.async_on_remove(
-            async_track_state_change_event(
-                self.hass,
-                [
-                    entry_data[ATTR_PLANT].entity_id
-                    for entry_data in self.hass.data.get(DOMAIN, {}).values()
-                    if isinstance(entry_data, dict) and ATTR_PLANT in entry_data
-                ],
-                _plant_state_changed,
+        if current_ids:
+            self._remove_listener = async_track_state_change_event(
+                self.hass, list(current_ids), _plant_state_changed
             )
-        )
+            self.async_on_remove(self._remove_listener)
+        else:
+            self._remove_listener = None
 
     @property
     def is_on(self) -> bool:
