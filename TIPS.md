@@ -10,6 +10,7 @@ Practical tips, template examples, and workarounds for common situations with th
   - [🔧 Fixing Sensors with Wrong or Missing Device Class](#-fixing-sensors-with-wrong-or-missing-device-class)
   - [💧 Auto-Watering with Averaged Moisture](#-auto-watering-with-averaged-moisture)
   - [🚨 Problem Notification Automation](#-problem-notification-automation)
+  - [📋 Problem Dashboard Card](#-problem-dashboard-card)
   - [🌤️ Weather Forecast Warnings for Outdoor Plants](#️-weather-forecast-warnings-for-outdoor-plants)
   - [🌡️ Combining Multiple Temperature Sources](#️-combining-multiple-temperature-sources)
   - [📊 Export Plant Config as YAML](#-export-plant-config-as-yaml)
@@ -165,6 +166,97 @@ To include which specific sensor triggered the issue, check the plant's attribut
               - {{ attr | replace('_status', '') | title }}: {{ trigger.to_state.attributes[attr] }}
               {% endif %}
             {% endfor %}
+```
+
+---
+
+## 📋 Problem Dashboard Card
+
+A Lovelace card that displays all plants with active problems, including visual progress bars showing where each sensor value falls relative to its thresholds. It uses `binary_sensor.plant_problems` and the per-plant `problems` attribute.
+
+<!-- TODO: add screenshot -->
+
+> [!NOTE]
+> This card requires [custom:html-template-card](https://github.com/PiotrMachworski/Home-Assistant-Lovelace-HTML-Jinja2-Template-card) installed via HACS.
+
+```yaml
+type: grid
+cards:
+  - type: heading
+    heading_style: title
+    heading: Plant Problems
+  - type: custom:html-template-card
+    ignore_line_breaks: true
+    content: >
+      {% set plants = state_attr('binary_sensor.plant_problems',
+      'plants_with_problems') %}
+
+      {% if not plants %}
+        <div style="color:var(--secondary-text-color); text-align:center; padding:16px;">All plants are healthy.</div>
+      {% else %}
+        {% for plant_info in plants %}
+          {% set problems = state_attr(plant_info.entity_id, 'problems') %}
+          <div style="padding:10px 0; border-bottom:1px solid var(--divider-color);">
+            <a href="/config/devices/device/{{ plant_info.device_id }}"
+               style="display:block; font-size:16px; font-weight:bold; text-decoration:none; color:var(--primary-text-color); margin-bottom:8px;">
+              {{ plant_info.friendly_name }}
+              <span style="font-size:12px; color:var(--secondary-text-color); font-weight:normal;">
+                — {{ plant_info.problem_count }} problem{{ 's' if plant_info.problem_count != 1 }}
+              </span>
+            </a>
+            {% if problems %}
+              {% for p in problems %}
+                {% set min_val = p.min | float %}
+                {% set max_val = p.max | float %}
+                {% set cur_val = p.current | float %}
+                {% set range   = max_val - min_val %}
+                {% set is_low  = p.status == 'Low' %}
+                {% set color   = 'var(--error-color, crimson)' %}
+                {% set icons = {
+                  'Moisture':         'mdi:water',
+                  'temperature':      'mdi:thermometer',
+                  'conductivity':     'mdi:spa-outline',
+                  'illuminance':      'mdi:brightness-6',
+                  'humidity':         'mdi:water-percent',
+                  'soil_temperature': 'mdi:thermometer-probe',
+                  'dli':              'mdi:counter',
+                  'co2':              'mdi:molecule-co2'
+                } %}
+                {% set icon = icons.get(p.sensor_type, 'mdi:leaf') %}
+                {% set seg1_pct = 100 %}
+                {% set seg2_pct = 0 if is_low else 100 %}
+                {% set seg3_pct = 0 if is_low else 100 %}
+
+                <div style="margin:6px 0 14px 0;">
+                  <div style="display:flex; align-items:center; justify-content:space-between; font-size:12px; margin-bottom:15px;">
+                    <div style="display:flex; align-items:center; gap:15px;">
+                      <ha-icon icon="{{ icon }}" style="width:16px; height:16px;"></ha-icon>
+                      <span>{{ p.sensor_type | replace('_', ' ') | title }}</span>
+                    </div>
+                    <span style="color:{{ color }}; font-weight:bold;">{{ p.status }} · {{ p.current }}</span>
+                  </div>
+                  <div style="display:flex; gap:3px; width:100%;">
+                    <div style="flex:1; height:8px; background:var(--primary-background-color); border-radius:2px; overflow:hidden;">
+                      <div style="height:100%; width:{{ seg1_pct }}%;
+                                  background:{{ color if is_low else 'var(--success-color, mediumseagreen)' }};"></div>
+                    </div>
+                    <div style="flex:10; height:8px; background:var(--primary-background-color); border-radius:2px; overflow:hidden;">
+                      <div style="height:100%; width:{{ seg2_pct }}%; background:var(--success-color, mediumseagreen);"></div>
+                    </div>
+                    <div style="flex:1; height:8px; background:var(--primary-background-color); border-radius:2px; overflow:hidden;">
+                      <div style="height:100%; width:{{ seg3_pct }}%;
+                                  background:{{ color if not is_low else 'transparent' }};"></div>
+                    </div>
+                  </div>
+                  <div style="display:flex; justify-content:space-between; font-size:10px; color:var(--secondary-text-color); margin-top:3px;">
+                    <span>{{ p.min }}</span><span>{{ p.max }}</span>
+                  </div>
+                </div>
+              {% endfor %}
+            {% endif %}
+          </div>
+        {% endfor %}
+      {% endif %}
 ```
 
 ---
