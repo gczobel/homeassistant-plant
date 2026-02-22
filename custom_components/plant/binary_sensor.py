@@ -137,14 +137,21 @@ class PlantMonitorProblemSensor(BinarySensorEntity):
             plant_problems = getattr(plant, "_problems", [])
             if plant_problems:
                 problem_count = len(plant_problems)
-                # Get device_id from entity registry
+                # Get device_id and user-overridden name from entity registry
                 registry_entry = entity_reg.async_get(plant.entity_id)
                 device_id = registry_entry.device_id if registry_entry else None
+                # Prefer the registry name (set when user renames the entity)
+                # over the config-entry name which doesn't update on rename.
+                friendly_name = (
+                    registry_entry.name or plant.name
+                    if registry_entry
+                    else plant.name
+                )
 
                 plants_with_problems.append(
                     {
                         "entity_id": plant.entity_id,
-                        "friendly_name": plant.name,
+                        "friendly_name": friendly_name,
                         "problem_count": problem_count,
                         "device_id": device_id,
                     }

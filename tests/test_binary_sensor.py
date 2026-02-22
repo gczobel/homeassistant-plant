@@ -140,7 +140,7 @@ class TestGlobalProblemSensor:
         assert "problem_count" in plant_info
         assert "device_id" in plant_info
 
-        # Verify friendly_name matches the plant name
+        # Verify friendly_name matches the plant name (no rename yet)
         plant = hass.data[DOMAIN][init_integration.entry_id][ATTR_PLANT]
         assert plant_info["friendly_name"] == plant.name
 
@@ -148,6 +148,39 @@ class TestGlobalProblemSensor:
         entity_reg = er.async_get(hass)
         registry_entry = entity_reg.async_get(plant_info["entity_id"])
         assert plant_info["device_id"] == registry_entry.device_id
+
+    async def test_friendly_name_updates_after_rename(
+        self,
+        hass: HomeAssistant,
+        init_integration: MockConfigEntry,
+    ) -> None:
+        """Test that friendly_name reflects entity registry rename, not config entry."""
+        # Trigger a problem so the plant appears in plants_with_problems
+        await set_external_sensor_states(
+            hass,
+            moisture=10,
+            temperature=22,
+            conductivity=1000,
+            illuminance=5000,
+        )
+        await update_plant_sensors(hass, init_integration.entry_id)
+        await hass.async_block_till_done()
+
+        plant = hass.data[DOMAIN][init_integration.entry_id][ATTR_PLANT]
+        entity_reg = er.async_get(hass)
+
+        # Rename the entity via the registry (same as UI rename)
+        entity_reg.async_update_entity(plant.entity_id, name="Renamed Plant")
+        await hass.async_block_till_done()
+
+        # Re-trigger state update so the global sensor recalculates attributes
+        await update_plant_sensors(hass, init_integration.entry_id)
+        await hass.async_block_till_done()
+
+        state = hass.states.get("binary_sensor.plant_problems")
+        plants_with_problems = state.attributes["plants_with_problems"]
+        assert len(plants_with_problems) == 1
+        assert plants_with_problems[0]["friendly_name"] == "Renamed Plant"
 
     async def test_problem_count_matches_problems_list(
         self,
