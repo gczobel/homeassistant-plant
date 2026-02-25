@@ -66,6 +66,12 @@ class PlantMonitorProblemSensor(BinarySensorEntity):
 
     async def async_added_to_hass(self) -> None:
         """Register state change listener when added to hass."""
+        # Register removal once; the wrapper delegates to whatever the
+        # current listener is, so _refresh_tracked_plants can swap it
+        # without accumulating stale async_on_remove callbacks.
+        self.async_on_remove(
+            lambda: self._remove_listener() if self._remove_listener else None
+        )
         self._refresh_tracked_plants()
 
     @callback
@@ -101,7 +107,6 @@ class PlantMonitorProblemSensor(BinarySensorEntity):
             self._remove_listener = async_track_state_change_event(
                 self.hass, list(current_ids), _plant_state_changed
             )
-            self.async_on_remove(self._remove_listener)
         else:
             self._remove_listener = None
 
@@ -143,9 +148,7 @@ class PlantMonitorProblemSensor(BinarySensorEntity):
                 # Prefer the registry name (set when user renames the entity)
                 # over the config-entry name which doesn't update on rename.
                 friendly_name = (
-                    registry_entry.name or plant.name
-                    if registry_entry
-                    else plant.name
+                    registry_entry.name or plant.name if registry_entry else plant.name
                 )
 
                 plants_with_problems.append(
