@@ -7,6 +7,8 @@ active problem (sensor_type, status, current value, min/max thresholds).
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import pytest
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -171,3 +173,63 @@ class TestProblemsAttribute:
         await update_plant_sensors(hass, init_integration.entry_id)
 
         assert plant._problems == []
+
+
+class TestLogbookIntegration:
+    """Tests for logbook entries on plant problem changes."""
+
+    async def test_logbook_called_when_problem_appears(
+        self,
+        hass: HomeAssistant,
+        init_integration: MockConfigEntry,
+    ) -> None:
+        """Test that log_entry is called when a new problem appears."""
+        with patch("custom_components.plant.log_entry") as mock_log:
+            await set_external_sensor_states(
+                hass, moisture=5.0, temperature=25.0, conductivity=1000
+            )
+            await update_plant_sensors(hass, init_integration.entry_id)
+
+        assert mock_log.called
+        message = mock_log.call_args[0][2]
+        assert "moisture" in message
+        assert "low" in message
+
+    async def test_logbook_called_on_recovery(
+        self,
+        hass: HomeAssistant,
+        init_integration: MockConfigEntry,
+    ) -> None:
+        """Test that log_entry is called when a problem is resolved."""
+        plant = hass.data[DOMAIN][init_integration.entry_id][ATTR_PLANT]
+        # Pre-seed a tracked problem so recovery can be detected
+        plant._logged_problem_types = {ATTR_MOISTURE}
+
+        with patch("custom_components.plant.log_entry") as mock_log:
+            await set_external_sensor_states(
+                hass, moisture=50.0, temperature=25.0, conductivity=1000
+            )
+            await update_plant_sensors(hass, init_integration.entry_id)
+
+        assert mock_log.called
+        message = mock_log.call_args[0][2]
+        assert "moisture" in message
+        assert "back in range" in message
+
+    async def test_logbook_not_called_when_problems_unchanged(
+        self,
+        hass: HomeAssistant,
+        init_integration: MockConfigEntry,
+    ) -> None:
+        """Test that log_entry is not called when problems don't change."""
+        # First update — causes a moisture problem and logs it
+        await set_external_sensor_states(
+            hass, moisture=5.0, temperature=25.0, conductivity=1000
+        )
+        await update_plant_sensors(hass, init_integration.entry_id)
+
+        # Second update — same problem still active, should not log again
+        with patch("custom_components.plant.log_entry") as mock_log:
+            await update_plant_sensors(hass, init_integration.entry_id)
+
+        assert not mock_log.called

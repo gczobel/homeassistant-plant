@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 
 import voluptuous as vol
 from homeassistant.components import websocket_api
+from homeassistant.components.logbook import log_entry
 from homeassistant.components.sensor import DOMAIN as SENSOR_DOMAIN
 from homeassistant.components.utility_meter.const import (
     DATA_TARIFF_SENSORS,
@@ -549,6 +550,7 @@ class PlantDevice(Entity):
         self.plant_complete = False
         self._device_id = None
         self._problems = []
+        self._logged_problem_types: set[str] = set()
 
         self._check_days = None
 
@@ -1508,6 +1510,36 @@ class PlantDevice(Entity):
             self.vpd_status = None
 
         self._problems = problems
+
+        # Log problem changes to the HA logbook so the activity feed shows
+        # what specifically went wrong, not just "state changed to problem".
+        new_problem_types = {p["sensor_type"] for p in problems}
+        appeared = new_problem_types - self._logged_problem_types
+        resolved = self._logged_problem_types - new_problem_types
+
+        for p in problems:
+            if p["sensor_type"] in appeared:
+                threshold_label = "min" if p["status"] == STATE_LOW else "max"
+                threshold_value = p["min"] if p["status"] == STATE_LOW else p["max"]
+                log_entry(
+                    self.hass,
+                    self.name,
+                    f"{p['sensor_type'].replace('_', ' ')} {p['status'].lower()}"
+                    f" — current: {p['current']}, {threshold_label}: {threshold_value}",
+                    domain=DOMAIN,
+                    entity_id=self.entity_id,
+                )
+
+        for sensor_type in resolved:
+            log_entry(
+                self.hass,
+                self.name,
+                f"{sensor_type.replace('_', ' ')} back in range",
+                domain=DOMAIN,
+                entity_id=self.entity_id,
+            )
+
+        self._logged_problem_types = new_problem_types
 
         if not known_state:
             new_state = STATE_UNKNOWN
