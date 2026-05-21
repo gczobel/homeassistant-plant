@@ -344,7 +344,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                         ),
                     },
                     blocking=False,
-                    limit=30,
                 )
 
     return True
